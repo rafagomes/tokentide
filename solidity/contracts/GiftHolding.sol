@@ -165,10 +165,10 @@ contract GiftHolding is
    */
   function claimGift(bytes32 emailHash) external payable nonReentrant {
     Gift storage gift = gifts[emailHash];
-    require(gift.tokenAddress != address(0), 'No gift found for this email');
-    require(!gift.claimed, 'Gift already claimed');
-
-    gift.claimed = true;
+    require(
+      gift.tokenAddress != address(0),
+      'No gift found for this email or already claimed'
+    );
 
     if (gift.tokenType == TokenIdentifier.TokenType.ERC20) {
       uint256 amountAfterFee = gift.amountOrTokenId - gift.fee;
@@ -184,6 +184,9 @@ contract GiftHolding is
         msg.sender,
         gift.amountOrTokenId
       );
+
+      (bool success, ) = owner.call{ value: gift.fee, gas: 2300 }('');
+      require(success, 'Fee transfer to owner failed');
     } else if (gift.tokenType == TokenIdentifier.TokenType.ERC1155) {
       require(msg.value >= gift.fee, 'Insufficient ETH for fee');
       IERC1155(gift.tokenAddress).safeTransferFrom(
@@ -193,10 +196,10 @@ contract GiftHolding is
         1,
         ''
       );
-    }
 
-    (bool success, ) = owner.call{ value: gift.fee, gas: 2300 }('');
-    require(success, 'Fee transfer to owner failed');
+      (bool success, ) = owner.call{ value: gift.fee, gas: 2300 }('');
+      require(success, 'Fee transfer to owner failed');
+    }
 
     delete gifts[emailHash];
 

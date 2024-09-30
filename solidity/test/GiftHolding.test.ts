@@ -114,15 +114,16 @@ describe('GiftHolding Contract', function () {
       );
 
       // Check balances before claim
-      const initialBalanceAddr1 = await mockERC20.balanceOf(await addr1.getAddress());
+      const initialBalanceAddr1 = await mockERC20.balanceOf(await addr1.address);
       const initialBalanceGiftHolding = await mockERC20.balanceOf(giftHolding.address);
+      await mockERC20.connect(addr1).approve(giftHolding.address, initialBalanceGiftHolding);
       const allowance = await mockERC20.allowance(addr1.address, giftHolding.address);
 
       console.log(`Initial addr1 Balance: ${ethers.utils.formatEther(initialBalanceAddr1)}`);
       console.log(`GiftHolding Balance: ${ethers.utils.formatEther(initialBalanceGiftHolding)}`);
       console.log(`Allowance from addr1 to GiftHolding: ${ethers.utils.formatEther(allowance)}`);
 
-      await expect(giftHolding.connect(addr1).claimGift(recipientHash, { value: 1 })).to.emit(
+      await expect(giftHolding.connect(addr1).claimGift(recipientHash, { value: 0 })).to.emit(
         giftHolding,
         'GiftClaimed',
       );
@@ -156,13 +157,14 @@ describe('GiftHolding Contract', function () {
       ).to.be.revertedWith('Insufficient balance');
     });
 
-    it('Should revert if claim is attempted twice', async function () {
+    it('Should revert if claim is attempted twice or not found', async function () {
       const recipientHash = ethers.utils.keccak256(
         ethers.utils.toUtf8Bytes('recipient@example.com'),
       );
+
       await expect(
         giftHolding.connect(addr1).claimGift(recipientHash, { value: 0 }),
-      ).to.be.revertedWith('Gift already claimed');
+      ).to.be.revertedWith('No gift found for this email or already claimed');
     });
   });
 
