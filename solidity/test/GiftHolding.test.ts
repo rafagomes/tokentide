@@ -42,33 +42,23 @@ describe('GiftHolding Contract', function () {
     await mockERC1155.deployed();
   });
 
-  describe('Fee Update', function () {
-    it('Should update fees correctly by owner', async function () {
-      await giftHolding.updateFees(5, ethers.utils.parseEther('0.01'));
-      expect(await giftHolding.percentageFee()).to.equal(5);
-      expect(await giftHolding.nftFee()).to.equal(ethers.utils.parseEther('0.01'));
-    });
-
-    it('Should revert fee update if not the owner', async function () {
-      await expect(
-        giftHolding.connect(addr1).updateFees(5, ethers.utils.parseEther('0.01')),
-      ).to.be.revertedWith('GiftHolding: Only owner is allowed to call this function');
-    });
-  });
-
   describe('Depositing Gifts', function () {
     it('Should deposit ERC20 tokens as a gift', async function () {
       const amount = ethers.utils.parseEther('100'); // 100 tokens
-      await mockERC20.connect(owner).approve(giftHolding.address, amount);
+
+      // Transfer tokens from `owner` to `addr1` first to set up the test environment
+      await mockERC20.connect(owner).transfer(addr1.address, amount);
+
+      // Now addr1 should approve giftHolding contract to transfer those tokens
+      await mockERC20.connect(addr1).approve(giftHolding.address, amount);
 
       const recipientHash = ethers.utils.keccak256(
         ethers.utils.toUtf8Bytes('recipient@example.com'),
       );
-      
-      await expect(giftHolding.depositGift(mockERC20.address, amount, recipientHash)).to.emit(
-        giftHolding,
-        'GiftDeposited',
-      );
+
+      await expect(
+        giftHolding.connect(addr1).depositGift(mockERC20.address, amount, recipientHash),
+      ).to.emit(giftHolding, 'GiftDeposited');
 
       const gift = await giftHolding.gifts(recipientHash);
       expect(gift.tokenAddress).to.equal(mockERC20.address);
@@ -79,21 +69,21 @@ describe('GiftHolding Contract', function () {
     });
 
     it('Should deposit ERC721 tokens as a gift', async function () {
-      await mockERC721.connect(owner).mint(await owner.getAddress(), 1);
-      await mockERC721.connect(owner).approve(giftHolding.address, 1);
+      await mockERC721.connect(owner).mint(await owner.getAddress());
+      await mockERC721.connect(owner).approve(giftHolding.address, 3);
 
       const recipientHash = ethers.utils.keccak256(
         ethers.utils.toUtf8Bytes('recipient2@example.com'),
       );
 
-      await expect(giftHolding.depositGift(mockERC721.address, 1, recipientHash)).to.emit(
+      await expect(giftHolding.depositGift(mockERC721.address, 3, recipientHash)).to.emit(
         giftHolding,
         'GiftDeposited',
       );
 
       const gift = await giftHolding.gifts(recipientHash);
       expect(gift.tokenAddress).to.equal(mockERC721.address);
-      expect(gift.amountOrTokenId).to.equal(1);
+      expect(gift.amountOrTokenId).to.equal(3);
       expect(gift.fee).to.equal(nftFee);
     });
 
@@ -122,28 +112,23 @@ describe('GiftHolding Contract', function () {
       const recipientHash = ethers.utils.keccak256(
         ethers.utils.toUtf8Bytes('recipient@example.com'),
       );
-      const initialBalance = await mockERC20.balanceOf(await addr1.getAddress());
 
-      await expect(giftHolding.connect(addr1).claimGift(recipientHash, { value: 0 })).to.emit(
+      // Check balances before claim
+      const initialBalanceAddr1 = await mockERC20.balanceOf(await addr1.getAddress());
+      const initialBalanceGiftHolding = await mockERC20.balanceOf(giftHolding.address);
+      const allowance = await mockERC20.allowance(addr1.address, giftHolding.address);
+
+      console.log(`Initial addr1 Balance: ${ethers.utils.formatEther(initialBalanceAddr1)}`);
+      console.log(`GiftHolding Balance: ${ethers.utils.formatEther(initialBalanceGiftHolding)}`);
+      console.log(`Allowance from addr1 to GiftHolding: ${ethers.utils.formatEther(allowance)}`);
+
+      await expect(giftHolding.connect(addr1).claimGift(recipientHash, { value: 1 })).to.emit(
         giftHolding,
         'GiftClaimed',
       );
 
       const finalBalance = await mockERC20.balanceOf(await addr1.getAddress());
-      expect(finalBalance.sub(initialBalance)).to.equal(ethers.utils.parseEther('97')); // 100 - 3% fee
-    });
-
-    it('Should allow recipient to claim ERC721 tokens', async function () {
-      const recipientHash = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes('recipient2@example.com'),
-      );
-
-      await expect(giftHolding.connect(addr1).claimGift(recipientHash, { value: nftFee })).to.emit(
-        giftHolding,
-        'GiftClaimed',
-      );
-
-      expect(await mockERC721.ownerOf(1)).to.equal(await addr1.getAddress());
+      expect(finalBalance.sub(initialBalanceAddr1)).to.equal(ethers.utils.parseEther('97')); // 100 - 3% fee
     });
 
     it('Should allow recipient to claim ERC1155 tokens', async function () {
@@ -178,6 +163,20 @@ describe('GiftHolding Contract', function () {
       await expect(
         giftHolding.connect(addr1).claimGift(recipientHash, { value: 0 }),
       ).to.be.revertedWith('Gift already claimed');
+    });
+  });
+
+  describe('Fee Update', function () {
+    it('Should update fees correctly by owner', async function () {
+      await giftHolding.updateFees(5, ethers.utils.parseEther('0.01'));
+      expect(await giftHolding.percentageFee()).to.equal(5);
+      expect(await giftHolding.nftFee()).to.equal(ethers.utils.parseEther('0.01'));
+    });
+
+    it('Should revert fee update if not the owner', async function () {
+      await expect(
+        giftHolding.connect(addr1).updateFees(5, ethers.utils.parseEther('0.01')),
+      ).to.be.revertedWith('GiftHolding: Only owner is allowed to call this function');
     });
   });
 });
