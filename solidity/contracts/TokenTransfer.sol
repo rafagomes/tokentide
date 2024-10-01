@@ -13,7 +13,14 @@ using SafeERC20 for IERC20;
  * @dev A contract to transfer tokens of different types (ERC20, ERC721, ERC1155) to a recipient
  */
 contract TokenTransfer is ReentrancyGuard {
-  TokenIdentifier public tokenIdentifier;
+  TokenIdentifier public immutable tokenIdentifier;
+
+  event TokenTransferred(
+    address indexed token,
+    address indexed recipient,
+    uint256 amountOrTokenId,
+    address indexed sender
+  );
 
   /**
    * @notice Constructor to set the TokenIdentifier contract address
@@ -55,6 +62,8 @@ contract TokenTransfer is ReentrancyGuard {
     } else if (tokenType == TokenIdentifier.TokenType.ERC1155) {
       _transferERC1155(token, recipient, amountOrTokenId);
     }
+
+    emit TokenTransferred(token, recipient, amountOrTokenId, msg.sender);
   }
 
   /**

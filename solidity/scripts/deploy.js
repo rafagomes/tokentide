@@ -12,13 +12,13 @@ async function main() {
   const TokenTransfer = await hre.ethers.getContractFactory('TokenTransfer');
   const tokenTransfer = await TokenTransfer.deploy(tokenIdentifier.address);
   await tokenTransfer.deployed();
+  console.log('TokenTransfer deployed to:', tokenTransfer.address);
 
-  // Deploy the GiftHolding contract
-  const GiftHolding = await hre.ethers.getContractFactory('GiftHolding');
-  const giftHolding = await GiftHolding.deploy(tokenIdentifier.address);
-  await giftHolding.deployed();
-
-  console.log('GiftHolding deployed to:', giftHolding.address);
+  // Deploy the GiftHolder contract
+  const GiftHolder = await hre.ethers.getContractFactory('GiftHolder');
+  const giftHolder = await GiftHolder.deploy(tokenIdentifier.address);
+  await giftHolder.deployed();
+  console.log('GiftHolder deployed to:', giftHolder.address);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
