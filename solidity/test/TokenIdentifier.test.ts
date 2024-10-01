@@ -56,16 +56,4 @@ describe('TokenIdentifier Contract', function () {
       .to.emit(tokenIdentifier, 'DetectionFailed')
       .withArgs(deployer.address, 'Address is not a contract', deployer.address);
   });
-
-  it('Should revert if trying to transfer ERC-20 without sufficient allowance', async function () {
-    const [_, recipient] = await ethers.getSigners();
-
-    await expect(
-      tokenIdentifier.transferToken(
-        mockERC20.address,
-        recipient.address,
-        ethers.utils.parseEther('10'),
-      ),
-    ).to.be.revertedWith('ERC20 allowance insufficient');
-  });
 });

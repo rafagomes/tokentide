@@ -119,10 +119,6 @@ describe('GiftHolding Contract', function () {
       await mockERC20.connect(addr1).approve(giftHolding.address, initialBalanceGiftHolding);
       const allowance = await mockERC20.allowance(addr1.address, giftHolding.address);
 
-      console.log(`Initial addr1 Balance: ${ethers.utils.formatEther(initialBalanceAddr1)}`);
-      console.log(`GiftHolding Balance: ${ethers.utils.formatEther(initialBalanceGiftHolding)}`);
-      console.log(`Allowance from addr1 to GiftHolding: ${ethers.utils.formatEther(allowance)}`);
-
       await expect(giftHolding.connect(addr1).claimGift(recipientHash, { value: 0 })).to.emit(
         giftHolding,
         'GiftClaimed',

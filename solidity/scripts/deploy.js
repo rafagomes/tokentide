@@ -1,18 +1,20 @@
 const hre = require('hardhat');
 
 async function main() {
-  // Get the contract factory
-  const GiftHolding = await hre.ethers.getContractFactory('GiftHolding');
-
-  // Deploy the TokenIdentifier contract first
+  // Deploy the TokenIdentifier contract
   const TokenIdentifier =
     await hre.ethers.getContractFactory('TokenIdentifier');
   const tokenIdentifier = await TokenIdentifier.deploy();
   await tokenIdentifier.deployed();
-
   console.log('TokenIdentifier deployed to:', tokenIdentifier.address);
 
-  // Deploy the GiftHolding contract with the address of TokenIdentifier
+  // Deploy the TokenTransfer contract
+  const TokenTransfer = await hre.ethers.getContractFactory('TokenTransfer');
+  const tokenTransfer = await TokenTransfer.deploy(tokenIdentifier.address);
+  await tokenTransfer.deployed();
+
+  // Deploy the GiftHolding contract
+  const GiftHolding = await hre.ethers.getContractFactory('GiftHolding');
   const giftHolding = await GiftHolding.deploy(tokenIdentifier.address);
   await giftHolding.deployed();
 
