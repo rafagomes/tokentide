@@ -8,6 +8,10 @@ import './TokenIdentifier.sol';
 // Enables the use of safetransfers for ERC20 tokens
 using SafeERC20 for IERC20;
 
+/**
+ * @title TokenTransfer
+ * @dev A contract to transfer tokens of different types (ERC20, ERC721, ERC1155) to a recipient
+ */
 contract TokenTransfer is ReentrancyGuard {
   TokenIdentifier public tokenIdentifier;
 
