@@ -69,15 +69,15 @@ contract GiftManager is ReentrancyGuard {
    */
   event FeesUpdated(uint256 percentageFee, uint256 nftFee);
 
-  constructor(address _tokenTransferAddress, address _recipientAddress) {
+  constructor(address _tokenTransferAddress, address _giftHolderAddress) {
     require(
       _tokenTransferAddress != address(0),
-      'Invalid TokenTransferAddress address'
+      'Invalid TokenTransfer address'
     );
-    require(_recipientAddress != address(0), 'Invalid TokenTransfer address');
+    require(_giftHolderAddress != address(0), 'Invalid GiftHolder address');
     owner = msg.sender;
-    tokenTransferAddress = _tokenTransferAddress;
-    recipientAddress = _recipientAddress;
+    tokenTransfer = TokenTransfer(_tokenTransferAddress);
+    giftHolder = GiftHolder(_giftHolderAddress);
   }
 
   /**
