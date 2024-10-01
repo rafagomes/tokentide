@@ -13,107 +13,107 @@ using SafeERC20 for IERC20;
  * @dev A contract to transfer tokens of different types (ERC20, ERC721, ERC1155) to a recipient
  */
 contract TokenTransfer is ReentrancyGuard {
-  TokenIdentifier public immutable tokenIdentifier;
+    TokenIdentifier public immutable tokenIdentifier;
 
-  event TokenTransferred(
-    address indexed token,
-    address indexed recipient,
-    uint256 amountOrTokenId,
-    address indexed sender
-  );
-
-  /**
-   * @notice Constructor to set the TokenIdentifier contract address
-   * @param _tokenIdentifierAddress Address of the deployed TokenIdentifier contract
-   */
-  constructor(address _tokenIdentifierAddress) {
-    require(
-      _tokenIdentifierAddress != address(0),
-      'Invalid TokenIdentifier address'
-    );
-    tokenIdentifier = TokenIdentifier(_tokenIdentifierAddress);
-  }
-
-  /**
-   * @notice Transfer tokens to a recipient based on their type (ERC20, ERC721, or ERC1155)
-   * @param token The address of the token contract
-   * @param recipient The recipient's address
-   * @param amountOrTokenId Amount of ERC20 tokens or token ID for ERC721/ERC1155
-   */
-  function transferToken(
-    address token,
-    address recipient,
-    uint256 amountOrTokenId
-  ) external nonReentrant {
-    TokenIdentifier.TokenType tokenType = tokenIdentifier.identifyTokenType(
-      token
+    event TokenTransferred(
+        address indexed token,
+        address indexed recipient,
+        uint256 amountOrTokenId,
+        address indexed sender
     );
 
-    require(
-      tokenType != TokenIdentifier.TokenType.UNKNOWN,
-      'Unsupported token type'
-    );
-    require(recipient != msg.sender, 'Cannot transfer to yourself');
-
-    if (tokenType == TokenIdentifier.TokenType.ERC20) {
-      _transferERC20(token, recipient, amountOrTokenId);
-    } else if (tokenType == TokenIdentifier.TokenType.ERC721) {
-      _transferERC721(token, recipient, amountOrTokenId);
-    } else if (tokenType == TokenIdentifier.TokenType.ERC1155) {
-      _transferERC1155(token, recipient, amountOrTokenId);
+    /**
+     * @notice Constructor to set the TokenIdentifier contract address
+     * @param _tokenIdentifierAddress Address of the deployed TokenIdentifier contract
+     */
+    constructor(address _tokenIdentifierAddress) {
+        require(
+            _tokenIdentifierAddress != address(0),
+            'Invalid TokenIdentifier address'
+        );
+        tokenIdentifier = TokenIdentifier(_tokenIdentifierAddress);
     }
 
-    emit TokenTransferred(token, recipient, amountOrTokenId, msg.sender);
-  }
+    /**
+     * @notice Transfer tokens to a recipient based on their type (ERC20, ERC721, or ERC1155)
+     * @param token The address of the token contract
+     * @param recipient The recipient's address
+     * @param amountOrTokenId Amount of ERC20 tokens or token ID for ERC721/ERC1155
+     */
+    function transferToken(
+        address token,
+        address recipient,
+        uint256 amountOrTokenId
+    ) external nonReentrant {
+        TokenIdentifier.TokenType tokenType = tokenIdentifier.identifyTokenType(
+            token
+        );
 
-  /**
-   * @dev Internal function to handle ERC20 transfers using SafeERC20
-   */
-  function _transferERC20(
-    address token,
-    address recipient,
-    uint256 amount
-  ) internal {
-    require(
-      IERC20(token).balanceOf(msg.sender) >= amount,
-      'Insufficient ERC20 balance'
-    );
-    require(
-      IERC20(token).allowance(msg.sender, address(this)) >= amount,
-      'ERC20 allowance insufficient'
-    );
+        require(
+            tokenType != TokenIdentifier.TokenType.UNKNOWN,
+            'Unsupported token type'
+        );
+        require(recipient != msg.sender, 'Cannot transfer to yourself');
 
-    IERC20(token).safeTransferFrom(msg.sender, recipient, amount);
-  }
+        if (tokenType == TokenIdentifier.TokenType.ERC20) {
+            _transferERC20(token, recipient, amountOrTokenId);
+        } else if (tokenType == TokenIdentifier.TokenType.ERC721) {
+            _transferERC721(token, recipient, amountOrTokenId);
+        } else if (tokenType == TokenIdentifier.TokenType.ERC1155) {
+            _transferERC1155(token, recipient, amountOrTokenId);
+        }
 
-  /**
-   * @dev Internal function to handle ERC721 transfers
-   */
-  function _transferERC721(
-    address token,
-    address recipient,
-    uint256 tokenId
-  ) internal {
-    require(
-      IERC721(token).getApproved(tokenId) == address(this) ||
-        IERC721(token).isApprovedForAll(msg.sender, address(this)),
-      'Contract not approved for ERC721 transfer'
-    );
-    IERC721(token).safeTransferFrom(msg.sender, recipient, tokenId);
-  }
+        emit TokenTransferred(token, recipient, amountOrTokenId, msg.sender);
+    }
 
-  /**
-   * @dev Internal function to handle ERC1155 transfers
-   */
-  function _transferERC1155(
-    address token,
-    address recipient,
-    uint256 tokenId
-  ) internal {
-    require(
-      IERC1155(token).isApprovedForAll(msg.sender, address(this)),
-      'Contract not approved for ERC1155 transfer'
-    );
-    IERC1155(token).safeTransferFrom(msg.sender, recipient, tokenId, 1, '');
-  }
+    /**
+     * @dev Internal function to handle ERC20 transfers using SafeERC20
+     */
+    function _transferERC20(
+        address token,
+        address recipient,
+        uint256 amount
+    ) internal {
+        require(
+            IERC20(token).balanceOf(msg.sender) >= amount,
+            'Insufficient ERC20 balance'
+        );
+        require(
+            IERC20(token).allowance(msg.sender, address(this)) >= amount,
+            'ERC20 allowance insufficient'
+        );
+
+        IERC20(token).safeTransferFrom(msg.sender, recipient, amount);
+    }
+
+    /**
+     * @dev Internal function to handle ERC721 transfers
+     */
+    function _transferERC721(
+        address token,
+        address recipient,
+        uint256 tokenId
+    ) internal {
+        require(
+            IERC721(token).getApproved(tokenId) == address(this) ||
+                IERC721(token).isApprovedForAll(msg.sender, address(this)),
+            'Contract not approved for ERC721 transfer'
+        );
+        IERC721(token).safeTransferFrom(msg.sender, recipient, tokenId);
+    }
+
+    /**
+     * @dev Internal function to handle ERC1155 transfers
+     */
+    function _transferERC1155(
+        address token,
+        address recipient,
+        uint256 tokenId
+    ) internal {
+        require(
+            IERC1155(token).isApprovedForAll(msg.sender, address(this)),
+            'Contract not approved for ERC1155 transfer'
+        );
+        IERC1155(token).safeTransferFrom(msg.sender, recipient, tokenId, 1, '');
+    }
 }
