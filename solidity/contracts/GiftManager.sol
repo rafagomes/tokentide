@@ -26,8 +26,17 @@ contract GiftManager is ReentrancyGuard {
     bool claimed;
   }
 
+  /**
+   * @notice Mapping to store gift details using recipient's email hash
+   */
   mapping(bytes32 => Gift) public gifts;
 
+  /**
+   * @param token Address of the token contract
+   * @param recipient Address of the recipient
+   * @param amountOrTokenId Amount of tokens or tokenId
+   * @param sender Address of the sender
+   */
   event GiftCreated(
     address indexed token,
     address indexed recipient,
@@ -69,6 +78,11 @@ contract GiftManager is ReentrancyGuard {
    */
   event FeesUpdated(uint256 percentageFee, uint256 nftFee);
 
+  /**
+   * @notice Constructor to set the TokenTransfer and GiftHolder contract addresses
+   * @param _tokenTransferAddress Address of the deployed TokenTransfer contract
+   * @param _giftHolderAddress Address of the deployed GiftHolder contract
+   */
   constructor(address _tokenTransferAddress, address _giftHolderAddress) {
     require(
       _tokenTransferAddress != address(0),
