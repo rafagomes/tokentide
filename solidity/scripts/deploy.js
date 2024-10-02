@@ -1,6 +1,9 @@
 const hre = require('hardhat');
 
 async function main() {
+    // Set the owner address
+    const ownerAddress = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+
     // Deploy the TokenIdentifier contract
     const TokenIdentifier =
         await hre.ethers.getContractFactory('TokenIdentifier');
@@ -16,15 +19,21 @@ async function main() {
 
     // Deploy the GiftHolder contract
     const GiftHolder = await hre.ethers.getContractFactory('GiftHolder');
-    const giftHolder = await GiftHolder.deploy(tokenIdentifier.address);
+    const giftHolder = await GiftHolder.deploy(
+        ownerAddress,
+        tokenIdentifier.address,
+    );
     await giftHolder.deployed();
     console.log('GiftHolder deployed to:', giftHolder.address);
 
     // Deploy the GiftManager contract
     const GiftManager = await hre.ethers.getContractFactory('GiftManager');
-    const giftManager = await GiftManager.deploy(tokenIdentifier.address);
+    const giftManager = await GiftManager.deploy(
+        tokenTransfer.address,
+        giftHolder.address,
+    );
     await giftManager.deployed();
-    console.log('GiftHolder deployed to:', giftManager.address);
+    console.log('GiftManager deployed to:', giftManager.address);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
