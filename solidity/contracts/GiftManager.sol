@@ -4,8 +4,13 @@ pragma solidity ^0.8.27;
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import './TokenTransfer.sol';
 import './GiftHolder.sol';
+import './interfaces/IGiftManager.sol';
 
-contract GiftManager is ReentrancyGuard {
+/**
+ * @title GiftManager
+ * @dev A contract to manage the creation and claiming of gifts
+ */
+contract GiftManager is ReentrancyGuard, IGiftManager {
     GiftHolder public immutable giftHolder;
     TokenTransfer public immutable tokenTransfer;
     address public owner;
@@ -21,7 +26,7 @@ contract GiftManager is ReentrancyGuard {
         address tokenAddress;
         uint256 amountOrTokenId;
         address sender;
-        TokenIdentifier.TokenType tokenType;
+        TokenTypes.TokenType tokenType;
         uint256 fee;
         bool claimed;
     }
@@ -68,7 +73,7 @@ contract GiftManager is ReentrancyGuard {
         address indexed sender,
         address indexed tokenAddress,
         uint256 amountOrTokenId,
-        TokenIdentifier.TokenType tokenType,
+        TokenTypes.TokenType tokenType,
         uint256 fee
     );
 
@@ -133,12 +138,12 @@ contract GiftManager is ReentrancyGuard {
         _validateGiftParameters(tokenAddress, recipientHash);
 
         // Identify the token type using TokenIdentifier via TokenTransfer
-        TokenIdentifier.TokenType tokenType = tokenTransfer
+        TokenTypes.TokenType tokenType = tokenTransfer
             .tokenIdentifier()
             .identifyTokenType(tokenAddress);
 
         // Calculate the fee based on token type
-        uint256 fee = (tokenType == TokenIdentifier.TokenType.ERC20)
+        uint256 fee = (tokenType == TokenTypes.TokenType.ERC20)
             ? (amountOrTokenId * percentageFee) / 100
             : nftFee;
 
@@ -183,10 +188,8 @@ contract GiftManager is ReentrancyGuard {
         );
         require(!gift.claimed, 'Gift already claimed');
 
-        // Mark the gift as claimed
         gift.claimed = true;
 
-        // Transfer the fee to GiftHolder, handling the actual token transfer
         giftHolder.claimGift{ value: msg.value }(
             gift.tokenAddress,
             msg.sender,
@@ -196,8 +199,21 @@ contract GiftManager is ReentrancyGuard {
 
         emit GiftClaimed(emailHash, msg.sender, gift.fee);
 
-        // Clean up storage to save gas and ensure consistency
         delete gifts[emailHash];
+    }
+
+    /**
+     * @notice Directly transfer tokens to a recipient
+     * @param token Address of the token contract
+     * @param recipient Address of the recipient
+     * @param amountOrTokenId Amount of tokens or tokenId
+     */
+    function directTokenTransfer(
+        address token,
+        address recipient,
+        uint256 amountOrTokenId
+    ) external nonReentrant {
+        tokenTransfer.transferToken(token, recipient, amountOrTokenId);
     }
 
     /**
