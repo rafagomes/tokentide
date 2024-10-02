@@ -12,7 +12,7 @@ import '@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol';
 import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import '@openzeppelin/contracts/utils/Pausable.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
-import './TokenTransfer.sol';
+import './interfaces/ITokenTransfer.sol';
 import './interfaces/IGiftHolder.sol';
 
 using SafeERC20 for IERC20;
@@ -31,7 +31,7 @@ contract GiftHolder is
     Pausable,
     Ownable
 {
-    TokenTransfer public tokenTransfer;
+    ITokenTransfer public tokenTransfer;
 
     event GiftReceived(
         address indexed tokenAddress,
@@ -54,7 +54,7 @@ contract GiftHolder is
             _tokenTransferAddress != address(0),
             'Invalid TokenTransfer address'
         );
-        tokenTransfer = TokenTransfer(_tokenTransferAddress);
+        tokenTransfer = ITokenTransfer(_tokenTransferAddress);
     }
 
     /**
