@@ -4,8 +4,8 @@ pragma solidity ^0.8.27;
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/utils/Pausable.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
-import './TokenTransfer.sol';
-import './GiftHolder.sol';
+import './interfaces/ITokenTransfer.sol';
+import './interfaces/IGiftHolder.sol';
 import './interfaces/IGiftManager.sol';
 
 /**
@@ -13,8 +13,8 @@ import './interfaces/IGiftManager.sol';
  * @dev A contract to manage the creation and claiming of gifts
  */
 contract GiftManager is ReentrancyGuard, IGiftManager, Pausable, Ownable {
-    GiftHolder public immutable giftHolder;
-    TokenTransfer public immutable tokenTransfer;
+    IGiftHolder public immutable giftHolder;
+    ITokenTransfer public immutable tokenTransfer;
     address public tokenTransferAddress;
     address public recipientAddress;
     uint128 public nftFee = 0.005 ether;
@@ -98,8 +98,8 @@ contract GiftManager is ReentrancyGuard, IGiftManager, Pausable, Ownable {
             'Invalid TokenTransfer address'
         );
         require(_giftHolderAddress != address(0), 'Invalid GiftHolder address');
-        tokenTransfer = TokenTransfer(_tokenTransferAddress);
-        giftHolder = GiftHolder(_giftHolderAddress);
+        tokenTransfer = ITokenTransfer(_tokenTransferAddress);
+        giftHolder = IGiftHolder(_giftHolderAddress);
     }
 
     /**
