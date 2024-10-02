@@ -2,8 +2,12 @@
 pragma solidity ^0.8.27;
 
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
+import '@openzeppelin/contracts/utils/Pausable.sol';
+import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import './TokenIdentifier.sol';
+import './libraries/TokenTypes.sol';
+import './interfaces/ITokenTransfer.sol';
 
 // Enables the use of safetransfers for ERC20 tokens
 using SafeERC20 for IERC20;
@@ -12,7 +16,7 @@ using SafeERC20 for IERC20;
  * @title TokenTransfer
  * @dev A contract to transfer tokens of different types (ERC20, ERC721, ERC1155) to a recipient
  */
-contract TokenTransfer is ReentrancyGuard {
+contract TokenTransfer is ReentrancyGuard, Pausable, Ownable, ITokenTransfer {
     TokenIdentifier public immutable tokenIdentifier;
 
     event TokenTransferred(
@@ -26,7 +30,7 @@ contract TokenTransfer is ReentrancyGuard {
      * @notice Constructor to set the TokenIdentifier contract address
      * @param _tokenIdentifierAddress Address of the deployed TokenIdentifier contract
      */
-    constructor(address _tokenIdentifierAddress) {
+    constructor(address _tokenIdentifierAddress) Ownable(msg.sender) {
         require(
             _tokenIdentifierAddress != address(0),
             'Invalid TokenIdentifier address'
@@ -44,22 +48,22 @@ contract TokenTransfer is ReentrancyGuard {
         address token,
         address recipient,
         uint256 amountOrTokenId
-    ) external nonReentrant {
-        TokenIdentifier.TokenType tokenType = tokenIdentifier.identifyTokenType(
+    ) external nonReentrant whenNotPaused {
+        TokenTypes.TokenType tokenType = tokenIdentifier.identifyTokenType(
             token
         );
 
         require(
-            tokenType != TokenIdentifier.TokenType.UNKNOWN,
+            tokenType != TokenTypes.TokenType.UNKNOWN,
             'Unsupported token type'
         );
         require(recipient != msg.sender, 'Cannot transfer to yourself');
 
-        if (tokenType == TokenIdentifier.TokenType.ERC20) {
+        if (tokenType == TokenTypes.TokenType.ERC20) {
             _transferERC20(token, recipient, amountOrTokenId);
-        } else if (tokenType == TokenIdentifier.TokenType.ERC721) {
+        } else if (tokenType == TokenTypes.TokenType.ERC721) {
             _transferERC721(token, recipient, amountOrTokenId);
-        } else if (tokenType == TokenIdentifier.TokenType.ERC1155) {
+        } else if (tokenType == TokenTypes.TokenType.ERC1155) {
             _transferERC1155(token, recipient, amountOrTokenId);
         }
 
