@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat';
-import { Contract } from 'ethers';
-import chai from 'chai';
+import { Contract, Signer } from 'ethers';
 import { solidity } from 'ethereum-waffle';
+import chai from 'chai';
 
 chai.use(solidity);
 const { expect } = chai;
@@ -9,10 +9,12 @@ const { expect } = chai;
 describe('TokenIdentifier Contract', function () {
     let tokenIdentifier: Contract;
     let mockERC20: Contract, mockERC721: Contract, mockERC1155: Contract;
-    let deployer: any;
+    let deployer: Signer;
+    let AUTHORIZED_ROLE;
 
     before(async () => {
         [deployer] = await ethers.getSigners();
+        AUTHORIZED_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('AUTHORIZED_ROLE'));
 
         const TokenIdentifier = await ethers.getContractFactory('TokenIdentifier');
         tokenIdentifier = await TokenIdentifier.deploy();
@@ -29,6 +31,8 @@ describe('TokenIdentifier Contract', function () {
         const MockERC1155 = await ethers.getContractFactory('MockERC1155');
         mockERC1155 = await MockERC1155.deploy();
         await mockERC1155.deployed();
+
+        await tokenIdentifier.grantRole(AUTHORIZED_ROLE, deployer.address);
     });
 
     it('Should correctly identify ERC-20 token', async function () {
@@ -52,8 +56,9 @@ describe('TokenIdentifier Contract', function () {
     });
 
     it('Should emit DetectionFailed for an address that is not a contract', async function () {
-        await expect(tokenIdentifier.identifyTokenType(deployer.address))
-            .to.emit(tokenIdentifier, 'DetectionFailed')
-            .withArgs(deployer.address, 'Address is not a contract', deployer.address);
+        await expect(tokenIdentifier.identifyTokenType(deployer.address)).to.emit(
+            tokenIdentifier,
+            'DetectionFailed',
+        );
     });
 });

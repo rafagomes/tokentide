@@ -127,7 +127,7 @@ contract TokenIdentifier is
      */
     function _identifyERC721(
         address token
-    ) private view returns (TokenTypes.TokenType) {
+    ) private returns (TokenTypes.TokenType) {
         try IERC165(token).supportsInterface(ERC721_INTERFACE_ID) returns (
             bool isERC721
         ) {
@@ -135,7 +135,7 @@ contract TokenIdentifier is
                 return TokenTypes.TokenType.ERC721;
             }
         } catch {
-            revert ERC721IdentificationFailed(token);
+            _emitDetectionFailed(token, 'ERC721 identification failed');
         }
         return TokenTypes.TokenType.UNKNOWN;
     }
@@ -145,7 +145,7 @@ contract TokenIdentifier is
      */
     function _identifyERC1155(
         address token
-    ) private view returns (TokenTypes.TokenType) {
+    ) private returns (TokenTypes.TokenType) {
         try IERC165(token).supportsInterface(ERC1155_INTERFACE_ID) returns (
             bool isERC1155
         ) {
@@ -153,7 +153,7 @@ contract TokenIdentifier is
                 return TokenTypes.TokenType.ERC1155;
             }
         } catch {
-            revert ERC1155IdentificationFailed(token);
+            _emitDetectionFailed(token, 'ERC721 identification failed');
         }
         return TokenTypes.TokenType.UNKNOWN;
     }
@@ -163,16 +163,17 @@ contract TokenIdentifier is
      */
     function _identifyERC20(
         address token
-    ) private view returns (TokenTypes.TokenType) {
+    ) private returns (TokenTypes.TokenType) {
         try IERC20(token).totalSupply() returns (uint256) {
             try IERC20(token).balanceOf(address(this)) returns (uint256) {
                 return TokenTypes.TokenType.ERC20;
-            } catch (bytes memory reason) {
-                revert ERC20IdentificationFailed(token, _decodeReason(reason));
+            } catch {
+                _emitDetectionFailed(token, 'ERC721 identification failed');
             }
         } catch (bytes memory reason) {
             revert ERC20IdentificationFailed(token, _decodeReason(reason));
         }
+        return TokenTypes.TokenType.UNKNOWN;
     }
 
     /**
