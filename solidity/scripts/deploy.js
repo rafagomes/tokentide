@@ -19,10 +19,7 @@ async function main() {
 
     // Deploy the GiftHolder contract
     const GiftHolder = await hre.ethers.getContractFactory('GiftHolder');
-    const giftHolder = await GiftHolder.deploy(
-        ownerAddress,
-        tokenIdentifier.address,
-    );
+    const giftHolder = await GiftHolder.deploy(tokenIdentifier.address);
     await giftHolder.deployed();
     console.log('GiftHolder deployed to:', giftHolder.address);
 

@@ -2,6 +2,8 @@
 pragma solidity ^0.8.27;
 
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
+import '@openzeppelin/contracts/utils/Pausable.sol';
+import '@openzeppelin/contracts/access/Ownable.sol';
 import './TokenTransfer.sol';
 import './GiftHolder.sol';
 import './interfaces/IGiftManager.sol';
@@ -10,10 +12,9 @@ import './interfaces/IGiftManager.sol';
  * @title GiftManager
  * @dev A contract to manage the creation and claiming of gifts
  */
-contract GiftManager is ReentrancyGuard, IGiftManager {
+contract GiftManager is ReentrancyGuard, IGiftManager, Pausable, Ownable {
     GiftHolder public immutable giftHolder;
     TokenTransfer public immutable tokenTransfer;
-    address public owner;
     address public tokenTransferAddress;
     address public recipientAddress;
     uint128 public nftFee = 0.005 ether;
@@ -88,26 +89,17 @@ contract GiftManager is ReentrancyGuard, IGiftManager {
      * @param _tokenTransferAddress Address of the deployed TokenTransfer contract
      * @param _giftHolderAddress Address of the deployed GiftHolder contract
      */
-    constructor(address _tokenTransferAddress, address _giftHolderAddress) {
+    constructor(
+        address _tokenTransferAddress,
+        address _giftHolderAddress
+    ) Ownable(msg.sender) {
         require(
             _tokenTransferAddress != address(0),
             'Invalid TokenTransfer address'
         );
         require(_giftHolderAddress != address(0), 'Invalid GiftHolder address');
-        owner = msg.sender;
         tokenTransfer = TokenTransfer(_tokenTransferAddress);
         giftHolder = GiftHolder(_giftHolderAddress);
-    }
-
-    /**
-     * @notice Modifier to allow only the owner to call a function
-     */
-    modifier onlyOwner() {
-        require(
-            msg.sender == owner,
-            'GiftHolder: Only owner is allowed to call this function'
-        );
-        _;
     }
 
     /**
@@ -118,7 +110,7 @@ contract GiftManager is ReentrancyGuard, IGiftManager {
     function updateFees(
         uint128 _percentageFee,
         uint128 _nftFee
-    ) external onlyOwner {
+    ) external onlyOwner whenNotPaused {
         percentageFee = _percentageFee;
         nftFee = _nftFee;
         emit FeesUpdated(_percentageFee, _nftFee);
@@ -134,7 +126,7 @@ contract GiftManager is ReentrancyGuard, IGiftManager {
         address tokenAddress,
         uint256 amountOrTokenId,
         bytes32 recipientHash
-    ) external payable nonReentrant {
+    ) external payable nonReentrant whenNotPaused {
         _validateGiftParameters(tokenAddress, recipientHash);
 
         // Identify the token type using TokenIdentifier via TokenTransfer
@@ -180,7 +172,9 @@ contract GiftManager is ReentrancyGuard, IGiftManager {
      * @notice Claim a gift using the recipient's email hash
      * @param emailHash Hash of the recipient's email
      */
-    function claimGift(bytes32 emailHash) external payable nonReentrant {
+    function claimGift(
+        bytes32 emailHash
+    ) external payable nonReentrant whenNotPaused {
         Gift storage gift = gifts[emailHash];
         require(
             gift.tokenAddress != address(0),
@@ -212,7 +206,7 @@ contract GiftManager is ReentrancyGuard, IGiftManager {
         address token,
         address recipient,
         uint256 amountOrTokenId
-    ) external nonReentrant {
+    ) external nonReentrant whenNotPaused {
         tokenTransfer.transferToken(token, recipient, amountOrTokenId);
     }
 

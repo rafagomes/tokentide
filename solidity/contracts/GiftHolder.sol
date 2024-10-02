@@ -10,6 +10,8 @@ import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol';
 import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
+import '@openzeppelin/contracts/utils/Pausable.sol';
+import '@openzeppelin/contracts/access/Ownable.sol';
 import './TokenTransfer.sol';
 import './interfaces/IGiftHolder.sol';
 
@@ -25,10 +27,11 @@ contract GiftHolder is
     IERC721Receiver,
     IERC1155Receiver,
     ERC165,
-    IGiftHolder
+    IGiftHolder,
+    Pausable,
+    Ownable
 {
     TokenTransfer public tokenTransfer;
-    address public immutable owner;
 
     event GiftReceived(
         address indexed tokenAddress,
@@ -46,24 +49,11 @@ contract GiftHolder is
         uint256 fee
     );
 
-    /**
-     * @notice Modifier to allow only the owner to call a function
-     */
-    modifier onlyOwner() {
-        require(
-            msg.sender == owner,
-            'GiftHolder: Only owner is allowed to call this function'
-        );
-        _;
-    }
-
-    constructor(address _owner, address _tokenTransferAddress) {
-        require(_owner != address(0), 'Invalid owner address');
+    constructor(address _tokenTransferAddress) Ownable(msg.sender) {
         require(
             _tokenTransferAddress != address(0),
             'Invalid TokenTransfer address'
         );
-        owner = _owner;
         tokenTransfer = TokenTransfer(_tokenTransferAddress);
     }
 
@@ -119,7 +109,7 @@ contract GiftHolder is
         // Transfer the fee to the owner
         if (msg.value > 0 && fee > 0) {
             require(msg.value >= fee, 'Insufficient ETH for fee');
-            (bool success, ) = owner.call{ value: fee, gas: 2300 }('');
+            (bool success, ) = owner().call{ value: fee, gas: 2300 }('');
             require(success, 'Fee transfer to owner failed');
         }
 
