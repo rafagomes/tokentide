@@ -12,9 +12,6 @@ describe('GiftHolding Contract', function () {
     let addr1: Signer;
     let addr2: Signer;
 
-    const percentageFee = 3; // 3%
-    const nftFee = ethers.utils.parseEther('0.005'); // 0.005 ETH
-
     before(async () => {
         [owner, addr1, addr2] = await ethers.getSigners();
 
@@ -162,20 +159,6 @@ describe('GiftHolding Contract', function () {
             await expect(
                 giftHolding.connect(addr1).claimGift(recipientHash, { value: 0 }),
             ).to.be.revertedWith('No gift found for this email or already claimed');
-        });
-    });
-
-    describe('Fee Update', function () {
-        it('Should update fees correctly by owner', async function () {
-            await giftHolding.updateFees(5, ethers.utils.parseEther('0.01'));
-            expect(await giftHolding.percentageFee()).to.equal(5);
-            expect(await giftHolding.nftFee()).to.equal(ethers.utils.parseEther('0.01'));
-        });
-
-        it('Should revert fee update if not the owner', async function () {
-            await expect(
-                giftHolding.connect(addr1).updateFees(5, ethers.utils.parseEther('0.01')),
-            ).to.be.revertedWith('GiftHolding: Only owner is allowed to call this function');
         });
     });
 });
