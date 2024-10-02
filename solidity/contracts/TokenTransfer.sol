@@ -3,7 +3,7 @@ pragma solidity ^0.8.27;
 
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/utils/Pausable.sol';
-import '@openzeppelin/contracts/access/Ownable.sol';
+import '@openzeppelin/contracts/access/AccessControl.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
@@ -19,8 +19,14 @@ using SafeERC20 for IERC20;
  * @title TokenTransfer
  * @dev A contract to transfer tokens of different types (ERC20, ERC721, ERC1155) to a recipient
  */
-contract TokenTransfer is ReentrancyGuard, Pausable, Ownable, ITokenTransfer {
+contract TokenTransfer is
+    ReentrancyGuard,
+    Pausable,
+    AccessControl,
+    ITokenTransfer
+{
     ITokenIdentifier public immutable tokenIdentifier;
+    bytes32 public constant AUTHORIZED_ROLE = keccak256('AUTHORIZED_ROLE');
 
     event TokenTransferred(
         address indexed token,
@@ -33,12 +39,14 @@ contract TokenTransfer is ReentrancyGuard, Pausable, Ownable, ITokenTransfer {
      * @notice Constructor to set the TokenIdentifier contract address
      * @param _tokenIdentifierAddress Address of the deployed TokenIdentifier contract
      */
-    constructor(address _tokenIdentifierAddress) Ownable(msg.sender) {
+    constructor(address _tokenIdentifierAddress) {
         require(
             _tokenIdentifierAddress != address(0),
             'Invalid TokenIdentifier address'
         );
         tokenIdentifier = ITokenIdentifier(_tokenIdentifierAddress);
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(AUTHORIZED_ROLE, msg.sender);
     }
 
     /**
@@ -51,7 +59,7 @@ contract TokenTransfer is ReentrancyGuard, Pausable, Ownable, ITokenTransfer {
         address token,
         address recipient,
         uint256 amountOrTokenId
-    ) external nonReentrant whenNotPaused {
+    ) external nonReentrant whenNotPaused onlyRole(AUTHORIZED_ROLE) {
         TokenTypes.TokenType tokenType = tokenIdentifier.identifyTokenType(
             token
         );
