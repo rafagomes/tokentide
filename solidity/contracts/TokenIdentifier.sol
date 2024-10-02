@@ -28,11 +28,25 @@ contract TokenIdentifier is
     // Mapping to cache identified token types for efficiency
     mapping(address => TokenTypes.TokenType) private tokenTypeCache;
 
+    // Custom Errors
+    error UnsupportedTokenType(address token);
+    error InvalidContractAddress(address token);
+    error ERC20IdentificationFailed(address token, string reason);
+    error ERC721IdentificationFailed(address token);
+    error ERC1155IdentificationFailed(address token);
+
     // Event emitted when token detection fails
     event DetectionFailed(
         address indexed token,
         string reason,
         address indexed sender,
+        uint256 timestamp
+    );
+
+    // Event emitted when a token type is cached
+    event TokenTypeCached(
+        address indexed token,
+        TokenTypes.TokenType tokenType,
         uint256 timestamp
     );
 
@@ -104,7 +118,7 @@ contract TokenIdentifier is
 
     function _identifyERC721(
         address token
-    ) private returns (TokenTypes.TokenType) {
+    ) private view returns (TokenTypes.TokenType) {
         try IERC165(token).supportsInterface(ERC721_INTERFACE_ID) returns (
             bool isERC721
         ) {
@@ -112,14 +126,14 @@ contract TokenIdentifier is
                 return TokenTypes.TokenType.ERC721;
             }
         } catch {
-            _emitDetectionFailed(token, 'ERC721 check failed');
+            revert ERC721IdentificationFailed(token);
         }
         return TokenTypes.TokenType.UNKNOWN;
     }
 
     function _identifyERC1155(
         address token
-    ) private returns (TokenTypes.TokenType) {
+    ) private view returns (TokenTypes.TokenType) {
         try IERC165(token).supportsInterface(ERC1155_INTERFACE_ID) returns (
             bool isERC1155
         ) {
@@ -127,24 +141,23 @@ contract TokenIdentifier is
                 return TokenTypes.TokenType.ERC1155;
             }
         } catch {
-            _emitDetectionFailed(token, 'ERC1155 check failed');
+            revert ERC1155IdentificationFailed(token);
         }
         return TokenTypes.TokenType.UNKNOWN;
     }
 
     function _identifyERC20(
         address token
-    ) private returns (TokenTypes.TokenType) {
+    ) private view returns (TokenTypes.TokenType) {
         try IERC20(token).totalSupply() returns (uint256) {
             try IERC20(token).balanceOf(address(this)) returns (uint256) {
                 return TokenTypes.TokenType.ERC20;
-            } catch {
-                _emitDetectionFailed(token, 'balanceOf check failed for ERC20');
+            } catch (bytes memory reason) {
+                revert ERC20IdentificationFailed(token, _decodeReason(reason));
             }
-        } catch {
-            _emitDetectionFailed(token, 'totalSupply check failed for ERC20');
+        } catch (bytes memory reason) {
+            revert ERC20IdentificationFailed(token, _decodeReason(reason));
         }
-        return TokenTypes.TokenType.UNKNOWN;
     }
 
     function _emitDetectionFailed(address token, string memory reason) private {
@@ -156,6 +169,17 @@ contract TokenIdentifier is
         TokenTypes.TokenType tokenType
     ) private returns (TokenTypes.TokenType) {
         tokenTypeCache[token] = tokenType;
+        emit TokenTypeCached(token, tokenType, block.timestamp);
         return tokenType;
+    }
+
+    function _decodeReason(
+        bytes memory reason
+    ) private pure returns (string memory) {
+        if (reason.length == 0) {
+            return 'Unknown Error';
+        } else {
+            return string(reason);
+        }
     }
 }

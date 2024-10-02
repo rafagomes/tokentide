@@ -12,7 +12,7 @@ import './interfaces/ITokenIdentifier.sol';
 import './libraries/TokenTypes.sol';
 import './interfaces/ITokenTransfer.sol';
 
-// Enables the use of safetransfers for ERC20 tokens
+// Enables the use of SafeTransfer for ERC20 tokens
 using SafeERC20 for IERC20;
 
 /**
@@ -28,11 +28,20 @@ contract TokenTransfer is
     ITokenIdentifier public immutable tokenIdentifier;
     bytes32 public constant AUTHORIZED_ROLE = keccak256('AUTHORIZED_ROLE');
 
+    // Custom error definitions for better error handling
+    error UnsupportedTokenType();
+    error InvalidRecipient();
+    error InsufficientBalance(uint256 available, uint256 required);
+    error InsufficientAllowance(uint256 available, uint256 required);
+    error TransferFailed();
+
     event TokenTransferred(
         address indexed token,
         address indexed recipient,
         uint256 amountOrTokenId,
-        address indexed sender
+        address indexed sender,
+        TokenTypes.TokenType tokenType,
+        address caller
     );
 
     /**
@@ -70,11 +79,12 @@ contract TokenTransfer is
             tokenType = tokenIdentifier.identifyTokenType(token);
         }
 
-        require(
-            tokenType != TokenTypes.TokenType.UNKNOWN,
-            'Unsupported token type'
-        );
-        require(recipient != msg.sender, 'Cannot transfer to yourself');
+        if (tokenType == TokenTypes.TokenType.UNKNOWN) {
+            revert UnsupportedTokenType();
+        }
+        if (recipient == msg.sender) {
+            revert InvalidRecipient();
+        }
 
         if (tokenType == TokenTypes.TokenType.ERC20) {
             _transferERC20(token, recipient, amountOrTokenId);
@@ -84,7 +94,14 @@ contract TokenTransfer is
             _transferERC1155(token, recipient, amountOrTokenId);
         }
 
-        emit TokenTransferred(token, recipient, amountOrTokenId, msg.sender);
+        emit TokenTransferred(
+            token,
+            recipient,
+            amountOrTokenId,
+            msg.sender,
+            tokenType,
+            tx.origin // Adding caller info
+        );
     }
 
     /**
@@ -95,14 +112,15 @@ contract TokenTransfer is
         address recipient,
         uint256 amount
     ) internal {
-        require(
-            IERC20(token).balanceOf(msg.sender) >= amount,
-            'Insufficient ERC20 balance'
-        );
-        require(
-            IERC20(token).allowance(msg.sender, address(this)) >= amount,
-            'ERC20 allowance insufficient'
-        );
+        uint256 balance = IERC20(token).balanceOf(msg.sender);
+        if (balance < amount) {
+            revert InsufficientBalance(balance, amount);
+        }
+
+        uint256 allowance = IERC20(token).allowance(msg.sender, address(this));
+        if (allowance < amount) {
+            revert InsufficientAllowance(allowance, amount);
+        }
 
         IERC20(token).safeTransferFrom(msg.sender, recipient, amount);
     }
@@ -115,11 +133,12 @@ contract TokenTransfer is
         address recipient,
         uint256 tokenId
     ) internal {
-        require(
-            IERC721(token).getApproved(tokenId) == address(this) ||
-                IERC721(token).isApprovedForAll(msg.sender, address(this)),
-            'Contract not approved for ERC721 transfer'
-        );
+        if (
+            IERC721(token).getApproved(tokenId) != address(this) &&
+            !IERC721(token).isApprovedForAll(msg.sender, address(this))
+        ) {
+            revert TransferFailed();
+        }
         IERC721(token).safeTransferFrom(msg.sender, recipient, tokenId);
     }
 
@@ -131,10 +150,9 @@ contract TokenTransfer is
         address recipient,
         uint256 tokenId
     ) internal {
-        require(
-            IERC1155(token).isApprovedForAll(msg.sender, address(this)),
-            'Contract not approved for ERC1155 transfer'
-        );
+        if (!IERC1155(token).isApprovedForAll(msg.sender, address(this))) {
+            revert TransferFailed();
+        }
         IERC1155(token).safeTransferFrom(msg.sender, recipient, tokenId, 1, '');
     }
 }
