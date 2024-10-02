@@ -34,6 +34,7 @@ contract TokenTransfer is
     error InsufficientBalance(uint256 available, uint256 required);
     error InsufficientAllowance(uint256 available, uint256 required);
     error TransferFailed();
+    error RecipientCannotBeSender();
 
     event TokenTransferred(
         address indexed token,
@@ -69,12 +70,12 @@ contract TokenTransfer is
         address recipient,
         uint256 amountOrTokenId
     ) external nonReentrant whenNotPaused onlyRole(AUTHORIZED_ROLE) {
-        // Check for caching
+        // Check for cached token type
         TokenTypes.TokenType tokenType = tokenIdentifier.getCachedTokenType(
             token
         );
 
-        // If the token type is not cached (UNKNOWN), then identify and cache it
+        // If the token type is not cached (UNKNOWN), identify and cache it
         if (tokenType == TokenTypes.TokenType.UNKNOWN) {
             tokenType = tokenIdentifier.identifyTokenType(token);
         }
@@ -82,10 +83,12 @@ contract TokenTransfer is
         if (tokenType == TokenTypes.TokenType.UNKNOWN) {
             revert UnsupportedTokenType();
         }
-        if (recipient == msg.sender) {
+
+        if (recipient == address(0) || recipient == msg.sender) {
             revert InvalidRecipient();
         }
 
+        // Handle token transfers based on token type
         if (tokenType == TokenTypes.TokenType.ERC20) {
             _transferERC20(token, recipient, amountOrTokenId);
         } else if (tokenType == TokenTypes.TokenType.ERC721) {
@@ -100,7 +103,7 @@ contract TokenTransfer is
             amountOrTokenId,
             msg.sender,
             tokenType,
-            tx.origin // Adding caller info
+            tx.origin
         );
     }
 
@@ -133,6 +136,7 @@ contract TokenTransfer is
         address recipient,
         uint256 tokenId
     ) internal {
+        // Ensure the contract is approved to transfer the token
         if (
             IERC721(token).getApproved(tokenId) != address(this) &&
             !IERC721(token).isApprovedForAll(msg.sender, address(this))
@@ -150,6 +154,7 @@ contract TokenTransfer is
         address recipient,
         uint256 tokenId
     ) internal {
+        // Ensure the contract is approved to transfer the token
         if (!IERC1155(token).isApprovedForAll(msg.sender, address(this))) {
             revert TransferFailed();
         }

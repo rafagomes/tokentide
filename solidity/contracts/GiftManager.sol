@@ -46,6 +46,18 @@ contract GiftManager is
      */
     mapping(bytes32 => Gift) public gifts;
 
+    // Custom errors for more descriptive error handling
+    error InvalidTokenTransferAddress();
+    error InvalidGiftHolderAddress();
+    error InvalidRecipientHash();
+    error InvalidTokenAddress();
+    error SelfGiftingNotAllowed();
+    error GiftAlreadyExists();
+    error GiftNotFound();
+    error GiftAlreadyClaimed();
+    error NotSender();
+    error GiftNotExpiredYet();
+
     /**
      * @param token Address of the token contract
      * @param recipient Address of the recipient
@@ -102,11 +114,10 @@ contract GiftManager is
         address _tokenTransferAddress,
         address _giftHolderAddress
     ) Ownable(msg.sender) {
-        require(
-            _tokenTransferAddress != address(0),
-            'Invalid TokenTransfer address'
-        );
-        require(_giftHolderAddress != address(0), 'Invalid GiftHolder address');
+        if (_tokenTransferAddress == address(0))
+            revert InvalidTokenTransferAddress();
+        if (_giftHolderAddress == address(0)) revert InvalidGiftHolderAddress();
+
         tokenTransfer = ITokenTransfer(_tokenTransferAddress);
         giftHolder = IGiftHolder(_giftHolderAddress);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -188,11 +199,8 @@ contract GiftManager is
         bytes32 emailHash
     ) external payable nonReentrant whenNotPaused {
         Gift storage gift = gifts[emailHash];
-        require(
-            gift.tokenAddress != address(0),
-            'No gift found for this email or already claimed'
-        );
-        require(!gift.claimed, 'Gift already claimed');
+        if (gift.tokenAddress == address(0)) revert GiftNotFound();
+        if (gift.claimed) revert GiftAlreadyClaimed();
 
         gift.claimed = true;
 
@@ -215,9 +223,9 @@ contract GiftManager is
         bytes32 recipientHash
     ) external nonReentrant whenNotPaused {
         Gift storage gift = gifts[recipientHash];
-        require(gift.sender == msg.sender, 'Only sender can reclaim');
-        require(!gift.claimed, 'Gift already claimed');
-        require(block.timestamp > gift.expiryTime, 'Gift not expired yet');
+        if (gift.sender != msg.sender) revert NotSender();
+        if (gift.claimed) revert GiftAlreadyClaimed();
+        if (block.timestamp <= gift.expiryTime) revert GiftNotExpiredYet();
 
         giftHolder.claimGift(
             gift.tokenAddress,
@@ -276,15 +284,10 @@ contract GiftManager is
         address tokenAddress,
         bytes32 recipientHash
     ) internal view {
-        require(msg.sender != address(this), 'Cannot gift to self');
-        require(recipientHash != bytes32(0), 'Invalid recipient hash');
-        require(
-            tokenAddress != address(0),
-            'GiftManager: Invalid token address'
-        );
-        require(
-            gifts[recipientHash].tokenAddress == address(0),
-            'GiftManager: Gift already exists'
-        );
+        if (msg.sender == address(this)) revert SelfGiftingNotAllowed();
+        if (recipientHash == bytes32(0)) revert InvalidRecipientHash();
+        if (tokenAddress == address(0)) revert InvalidTokenAddress();
+        if (gifts[recipientHash].tokenAddress != address(0))
+            revert GiftAlreadyExists();
     }
 }
