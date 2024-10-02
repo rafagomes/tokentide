@@ -6,106 +6,168 @@ import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
 import '@openzeppelin/contracts/token/ERC1155/IERC1155.sol';
 import '@openzeppelin/contracts/utils/introspection/IERC165.sol';
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
+import '@openzeppelin/contracts/utils/Pausable.sol';
+import '@openzeppelin/contracts/access/Ownable.sol';
+import './libraries/TokenTypes.sol';
+import './interfaces/ITokenIdentifier.sol';
 
 /**
  * @title TokenIdentifier
  * @dev A contract to identify and transfer different types of tokens (ERC20, ERC721, ERC1155)
  */
-contract TokenIdentifier is ReentrancyGuard {
+contract TokenIdentifier is
+    ReentrancyGuard,
+    Pausable,
+    Ownable,
+    ITokenIdentifier
+{
     bytes4 private constant ERC721_INTERFACE_ID = 0x80ac58cd;
     bytes4 private constant ERC1155_INTERFACE_ID = 0xd9b67a26;
 
-    // Enumeration representing supported token types
-    enum TokenType {
-        UNKNOWN,
-        ERC20,
-        ERC721,
-        ERC1155
-    }
-
     // Mapping to cache identified token types for efficiency
-    mapping(address => TokenType) private tokenTypeCache;
+    mapping(address => TokenTypes.TokenType) private tokenTypeCache;
 
     // Event emitted when token detection fails
     event DetectionFailed(
         address indexed token,
         string reason,
-        address indexed sender
+        address indexed sender,
+        uint256 timestamp
     );
+
+    constructor() Ownable(msg.sender) {}
 
     /**
      * @notice Identify the type of the token (ERC20, ERC721, ERC1155) at a given address
-     * @dev Uses EIP-165 to identify ERC721 and ERC1155, and totalSupply/balanceOf checks for ERC20
      * @param token The address of the token contract to identify
      * @return TokenType The type of the token identified
      */
-    function identifyTokenType(address token) external returns (TokenType) {
+    function identifyTokenType(
+        address token
+    ) external whenNotPaused returns (TokenTypes.TokenType) {
+        TokenTypes.TokenType cachedType = tokenTypeCache[token];
+        if (cachedType != TokenTypes.TokenType.UNKNOWN) {
+            return cachedType;
+        }
+
+        if (!_isContract(token)) {
+            _emitDetectionFailed(token, 'Address is not a contract');
+            return _cacheTokenType(token, TokenTypes.TokenType.UNKNOWN);
+        }
+
+        // Identify the token type
+        TokenTypes.TokenType identifiedType = _identifyERC721(token);
+        if (identifiedType != TokenTypes.TokenType.UNKNOWN) {
+            return _cacheTokenType(token, identifiedType);
+        }
+
+        identifiedType = _identifyERC1155(token);
+        if (identifiedType != TokenTypes.TokenType.UNKNOWN) {
+            return _cacheTokenType(token, identifiedType);
+        }
+
+        identifiedType = _identifyERC20(token);
+        if (identifiedType != TokenTypes.TokenType.UNKNOWN) {
+            return _cacheTokenType(token, identifiedType);
+        }
+
+        _emitDetectionFailed(token, 'Could not identify token type');
+        return _cacheTokenType(token, TokenTypes.TokenType.UNKNOWN);
+    }
+
+    /**
+     * @notice Check if an address is a contract
+     * @param addr The address to check
+     * @return bool True if the address is a contract, false otherwise
+     */
+    function _isContract(address addr) private view returns (bool) {
         uint256 size;
         assembly {
-            size := extcodesize(token) // Check if the address is a contract
+            size := extcodesize(addr)
         }
+        return size > 0;
+    }
 
-        if (size == 0) {
-            emit DetectionFailed(
-                token,
-                'Address is not a contract',
-                msg.sender
-            );
-            tokenTypeCache[token] = TokenType.UNKNOWN;
-            return TokenType.UNKNOWN;
-        }
-
-        if (tokenTypeCache[token] != TokenType.UNKNOWN) {
-            return tokenTypeCache[token]; // Return cached token type if already identified
-        }
-
-        // Check for ERC721 interface support
+    /**
+     * @notice Attempt to identify if the token is an ERC721
+     * @param token The address of the token contract
+     * @return TokenType The identified token type (ERC721 or UNKNOWN)
+     */
+    function _identifyERC721(
+        address token
+    ) private returns (TokenTypes.TokenType) {
         try IERC165(token).supportsInterface(ERC721_INTERFACE_ID) returns (
             bool isERC721
         ) {
             if (isERC721) {
-                return (tokenTypeCache[token] = TokenType.ERC721);
+                return TokenTypes.TokenType.ERC721;
             }
         } catch {
-            emit DetectionFailed(token, 'ERC721 check failed', msg.sender);
+            _emitDetectionFailed(token, 'ERC721 check failed');
         }
+        return TokenTypes.TokenType.UNKNOWN;
+    }
 
-        // Check for ERC1155 interface support
+    /**
+     * @notice Attempt to identify if the token is an ERC1155
+     * @param token The address of the token contract
+     * @return TokenType The identified token type (ERC1155 or UNKNOWN)
+     */
+    function _identifyERC1155(
+        address token
+    ) private returns (TokenTypes.TokenType) {
         try IERC165(token).supportsInterface(ERC1155_INTERFACE_ID) returns (
             bool isERC1155
         ) {
             if (isERC1155) {
-                return (tokenTypeCache[token] = TokenType.ERC1155);
+                return TokenTypes.TokenType.ERC1155;
             }
         } catch {
-            emit DetectionFailed(token, 'ERC1155 check failed', msg.sender);
+            _emitDetectionFailed(token, 'ERC1155 check failed');
         }
+        return TokenTypes.TokenType.UNKNOWN;
+    }
 
-        // Check for ERC20 by calling totalSupply and balanceOf
+    /**
+     * @notice Attempt to identify if the token is an ERC20
+     * @param token The address of the token contract
+     * @return TokenType The identified token type (ERC20 or UNKNOWN)
+     */
+    function _identifyERC20(
+        address token
+    ) private returns (TokenTypes.TokenType) {
         try IERC20(token).totalSupply() returns (uint256) {
             try IERC20(token).balanceOf(address(this)) returns (uint256) {
-                return (tokenTypeCache[token] = TokenType.ERC20);
+                return TokenTypes.TokenType.ERC20;
             } catch {
-                emit DetectionFailed(
-                    token,
-                    'balanceOf check failed for ERC20',
-                    msg.sender
-                );
+                _emitDetectionFailed(token, 'balanceOf check failed for ERC20');
             }
         } catch {
-            emit DetectionFailed(
-                token,
-                'totalSupply check failed for ERC20',
-                msg.sender
-            );
+            _emitDetectionFailed(token, 'totalSupply check failed for ERC20');
         }
+        return TokenTypes.TokenType.UNKNOWN;
+    }
 
-        emit DetectionFailed(
-            token,
-            'Could not identify token type',
-            msg.sender
-        );
-        tokenTypeCache[token] = TokenType.UNKNOWN;
-        return TokenType.UNKNOWN;
+    /**
+     * @notice Emit a DetectionFailed event
+     * @param token The address of the token contract
+     * @param reason The reason for the detection failure
+     */
+    function _emitDetectionFailed(address token, string memory reason) private {
+        emit DetectionFailed(token, reason, msg.sender, block.timestamp);
+    }
+
+    /**
+     * @notice Cache the identified token type
+     * @param token The address of the token contract
+     * @param tokenType The identified token type
+     * @return TokenType The cached token type
+     */
+    function _cacheTokenType(
+        address token,
+        TokenTypes.TokenType tokenType
+    ) private returns (TokenTypes.TokenType) {
+        tokenTypeCache[token] = tokenType;
+        return tokenType;
     }
 }
