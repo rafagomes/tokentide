@@ -9,7 +9,8 @@ interface IGiftManager {
     function depositGift(
         address tokenAddress,
         uint256 amountOrTokenId,
-        bytes32 recipientHash
+        bytes32 recipientHash,
+        uint256 expiryTimeInSeconds
     ) external payable;
 
     function claimGift(bytes32 emailHash) external payable;
@@ -21,4 +22,13 @@ interface IGiftManager {
         address recipient,
         uint256 amountOrTokenId
     ) external;
+
+    function reclaimGift(bytes32 recipientHash) external;
+
+    function batchDepositGift(
+        address tokenAddress,
+        uint256[] calldata amountsOrTokenIds,
+        bytes32[] calldata recipientHashes,
+        uint256 expiryTimeInSeconds
+    ) external payable;
 }

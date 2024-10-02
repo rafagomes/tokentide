@@ -36,13 +36,9 @@ contract TokenIdentifier is
         uint256 timestamp
     );
 
-    /**
-     * @notice Constructor to set the initial roles and pause state
-     */
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(AUTHORIZED_ROLE, msg.sender);
-        _pause();
     }
 
     /**
@@ -68,7 +64,6 @@ contract TokenIdentifier is
             return _cacheTokenType(token, TokenTypes.TokenType.UNKNOWN);
         }
 
-        // Identify the token type
         TokenTypes.TokenType identifiedType = _identifyERC721(token);
         if (identifiedType != TokenTypes.TokenType.UNKNOWN) {
             return _cacheTokenType(token, identifiedType);
@@ -89,10 +84,16 @@ contract TokenIdentifier is
     }
 
     /**
-     * @notice Check if an address is a contract
-     * @param addr The address to check
-     * @return bool True if the address is a contract, false otherwise
+     * @notice Retrieve the cached token type for a given token address
+     * @param token The address of the token contract
+     * @return TokenType The cached token type
      */
+    function getCachedTokenType(
+        address token
+    ) external view returns (TokenTypes.TokenType) {
+        return tokenTypeCache[token];
+    }
+
     function _isContract(address addr) private view returns (bool) {
         uint256 size;
         assembly {
@@ -101,11 +102,6 @@ contract TokenIdentifier is
         return size > 0;
     }
 
-    /**
-     * @notice Attempt to identify if the token is an ERC721
-     * @param token The address of the token contract
-     * @return TokenType The identified token type (ERC721 or UNKNOWN)
-     */
     function _identifyERC721(
         address token
     ) private returns (TokenTypes.TokenType) {
@@ -121,11 +117,6 @@ contract TokenIdentifier is
         return TokenTypes.TokenType.UNKNOWN;
     }
 
-    /**
-     * @notice Attempt to identify if the token is an ERC1155
-     * @param token The address of the token contract
-     * @return TokenType The identified token type (ERC1155 or UNKNOWN)
-     */
     function _identifyERC1155(
         address token
     ) private returns (TokenTypes.TokenType) {
@@ -141,11 +132,6 @@ contract TokenIdentifier is
         return TokenTypes.TokenType.UNKNOWN;
     }
 
-    /**
-     * @notice Attempt to identify if the token is an ERC20
-     * @param token The address of the token contract
-     * @return TokenType The identified token type (ERC20 or UNKNOWN)
-     */
     function _identifyERC20(
         address token
     ) private returns (TokenTypes.TokenType) {
@@ -161,21 +147,10 @@ contract TokenIdentifier is
         return TokenTypes.TokenType.UNKNOWN;
     }
 
-    /**
-     * @notice Emit a DetectionFailed event
-     * @param token The address of the token contract
-     * @param reason The reason for the detection failure
-     */
     function _emitDetectionFailed(address token, string memory reason) private {
         emit DetectionFailed(token, reason, msg.sender, block.timestamp);
     }
 
-    /**
-     * @notice Cache the identified token type
-     * @param token The address of the token contract
-     * @param tokenType The identified token type
-     * @return TokenType The cached token type
-     */
     function _cacheTokenType(
         address token,
         TokenTypes.TokenType tokenType

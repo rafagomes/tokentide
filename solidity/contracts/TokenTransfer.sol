@@ -60,9 +60,15 @@ contract TokenTransfer is
         address recipient,
         uint256 amountOrTokenId
     ) external nonReentrant whenNotPaused onlyRole(AUTHORIZED_ROLE) {
-        TokenTypes.TokenType tokenType = tokenIdentifier.identifyTokenType(
+        // Check for caching
+        TokenTypes.TokenType tokenType = tokenIdentifier.getCachedTokenType(
             token
         );
+
+        // If the token type is not cached (UNKNOWN), then identify and cache it
+        if (tokenType == TokenTypes.TokenType.UNKNOWN) {
+            tokenType = tokenIdentifier.identifyTokenType(token);
+        }
 
         require(
             tokenType != TokenTypes.TokenType.UNKNOWN,

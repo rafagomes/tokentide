@@ -38,6 +38,7 @@ contract GiftManager is
         TokenTypes.TokenType tokenType;
         uint256 fee;
         bool claimed;
+        uint256 expiryTime;
     }
 
     /**
@@ -134,8 +135,9 @@ contract GiftManager is
     function depositGift(
         address tokenAddress,
         uint256 amountOrTokenId,
-        bytes32 recipientHash
-    ) external payable nonReentrant whenNotPaused {
+        bytes32 recipientHash,
+        uint256 expiryTimeInSeconds
+    ) public payable nonReentrant whenNotPaused {
         _validateGiftParameters(tokenAddress, recipientHash);
 
         // Identify the token type using TokenIdentifier via TokenTransfer
@@ -164,7 +166,8 @@ contract GiftManager is
             msg.sender,
             tokenType,
             fee,
-            false
+            false,
+            block.timestamp + expiryTimeInSeconds
         );
 
         emit GiftDeposited(
@@ -206,6 +209,27 @@ contract GiftManager is
     }
 
     /**
+     * @notice Allows sender to reclaim their gift if it expires
+     */
+    function reclaimGift(
+        bytes32 recipientHash
+    ) external nonReentrant whenNotPaused {
+        Gift storage gift = gifts[recipientHash];
+        require(gift.sender == msg.sender, 'Only sender can reclaim');
+        require(!gift.claimed, 'Gift already claimed');
+        require(block.timestamp > gift.expiryTime, 'Gift not expired yet');
+
+        giftHolder.claimGift(
+            gift.tokenAddress,
+            gift.sender,
+            gift.amountOrTokenId,
+            0 // No fee for reclaiming
+        );
+
+        delete gifts[recipientHash];
+    }
+
+    /**
      * @notice Directly transfer tokens to a recipient
      * @param token Address of the token contract
      * @param recipient Address of the recipient
@@ -217,6 +241,30 @@ contract GiftManager is
         uint256 amountOrTokenId
     ) external nonReentrant whenNotPaused {
         tokenTransfer.transferToken(token, recipient, amountOrTokenId);
+    }
+
+    /**
+     * @notice Deposit multiple gifts in a batch
+     */
+    function batchDepositGift(
+        address tokenAddress,
+        uint256[] calldata amountsOrTokenIds,
+        bytes32[] calldata recipientHashes,
+        uint256 expiryTimeInSeconds
+    ) external payable nonReentrant whenNotPaused {
+        require(
+            amountsOrTokenIds.length == recipientHashes.length,
+            'Input arrays must have the same length'
+        );
+
+        for (uint256 i = 0; i < recipientHashes.length; i++) {
+            depositGift(
+                tokenAddress,
+                amountsOrTokenIds[i],
+                recipientHashes[i],
+                expiryTimeInSeconds
+            );
+        }
     }
 
     /**

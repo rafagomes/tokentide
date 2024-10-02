@@ -11,4 +11,8 @@ interface ITokenIdentifier {
     function identifyTokenType(
         address token
     ) external returns (TokenTypes.TokenType);
+
+    function getCachedTokenType(
+        address token
+    ) external view returns (TokenTypes.TokenType);
 }
