@@ -50,6 +50,9 @@ contract TokenIdentifier is
         uint256 timestamp
     );
 
+    /**
+     * @notice Constructor to set the default admin role
+     */
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(AUTHORIZED_ROLE, msg.sender);
@@ -108,6 +111,9 @@ contract TokenIdentifier is
         return tokenTypeCache[token];
     }
 
+    /**
+     * @notice check if an address is a contract
+     */
     function _isContract(address addr) private view returns (bool) {
         uint256 size;
         assembly {
@@ -116,6 +122,9 @@ contract TokenIdentifier is
         return size > 0;
     }
 
+    /**
+     * @notice Identify an ERC721 token
+     */
     function _identifyERC721(
         address token
     ) private view returns (TokenTypes.TokenType) {
@@ -131,6 +140,9 @@ contract TokenIdentifier is
         return TokenTypes.TokenType.UNKNOWN;
     }
 
+    /**
+     * @notice Identify an ERC1155 token
+     */
     function _identifyERC1155(
         address token
     ) private view returns (TokenTypes.TokenType) {
@@ -146,6 +158,9 @@ contract TokenIdentifier is
         return TokenTypes.TokenType.UNKNOWN;
     }
 
+    /**
+     * @notice Identify an ERC20 token
+     */
     function _identifyERC20(
         address token
     ) private view returns (TokenTypes.TokenType) {
@@ -160,10 +175,16 @@ contract TokenIdentifier is
         }
     }
 
+    /**
+     * @notice Emit an event when token detection fails
+     */
     function _emitDetectionFailed(address token, string memory reason) private {
         emit DetectionFailed(token, reason, msg.sender, block.timestamp);
     }
 
+    /**
+     * @notice Cache the token type for a given token address
+     */
     function _cacheTokenType(
         address token,
         TokenTypes.TokenType tokenType
@@ -173,6 +194,9 @@ contract TokenIdentifier is
         return tokenType;
     }
 
+    /**
+     * @notice Decode the revert reason
+     */
     function _decodeReason(
         bytes memory reason
     ) private pure returns (string memory) {
