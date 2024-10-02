@@ -11,6 +11,7 @@ import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol';
 import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import './TokenTransfer.sol';
+import './interfaces/IGiftHolder.sol';
 
 using SafeERC20 for IERC20;
 
@@ -23,7 +24,8 @@ contract GiftHolder is
     ReentrancyGuard,
     IERC721Receiver,
     IERC1155Receiver,
-    ERC165
+    ERC165,
+    IGiftHolder
 {
     TokenTransfer public tokenTransfer;
     address public immutable owner;
@@ -77,7 +79,7 @@ contract GiftHolder is
         address tokenAddress,
         uint256 amountOrTokenId,
         bytes32 recipientHash,
-        TokenIdentifier.TokenType tokenType,
+        TokenTypes.TokenType tokenType,
         uint256 fee
     ) external payable nonReentrant onlyOwner {
         tokenTransfer.transferToken(
