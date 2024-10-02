@@ -22,6 +22,7 @@
         "node": "pnpm hardhat node",
         "test": "pnpm hardhat test --network localhost",
         "compile": "pnpm hardhat compile",
-        "contract-deploy": "pnpm hardhat run scripts/deploy.js --network localhost"
+        "contract-deploy": "pnpm hardhat run scripts/deploy.js --network localhost",
+        "slither": "slither . --solc-remaps '@openzeppelin=node_modules/@openzeppelin'"
     }
 }
