@@ -10,6 +10,7 @@ import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol';
 import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
+import '@openzeppelin/contracts/access/AccessControl.sol';
 import '@openzeppelin/contracts/utils/Pausable.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 import './interfaces/ITokenTransfer.sol';
@@ -28,10 +29,12 @@ contract GiftHolder is
     IERC1155Receiver,
     ERC165,
     IGiftHolder,
-    Pausable,
-    Ownable
+    AccessControl,
+    Pausable
 {
     ITokenTransfer public tokenTransfer;
+    bytes32 public constant AUTHORIZED_ROLE = keccak256('AUTHORIZED_ROLE');
+    address public adminAddress;
 
     event GiftReceived(
         address indexed tokenAddress,
@@ -49,12 +52,14 @@ contract GiftHolder is
         uint256 fee
     );
 
-    constructor(address _tokenTransferAddress) Ownable(msg.sender) {
+    constructor(address _tokenTransferAddress) {
         require(
             _tokenTransferAddress != address(0),
             'Invalid TokenTransfer address'
         );
         tokenTransfer = ITokenTransfer(_tokenTransferAddress);
+        adminAddress = msg.sender;
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
     /**
@@ -71,7 +76,7 @@ contract GiftHolder is
         bytes32 recipientHash,
         TokenTypes.TokenType tokenType,
         uint256 fee
-    ) external payable nonReentrant onlyOwner {
+    ) external payable nonReentrant onlyRole(AUTHORIZED_ROLE) {
         tokenTransfer.transferToken(
             tokenAddress,
             address(this),
@@ -100,7 +105,7 @@ contract GiftHolder is
         address recipient,
         uint256 amountOrTokenId,
         uint256 fee
-    ) external payable nonReentrant onlyOwner {
+    ) external payable nonReentrant onlyRole(AUTHORIZED_ROLE) {
         require(recipient != address(0), 'Invalid recipient address');
 
         // Transfer the token using the TokenTransfer contract
@@ -109,7 +114,7 @@ contract GiftHolder is
         // Transfer the fee to the owner
         if (msg.value > 0 && fee > 0) {
             require(msg.value >= fee, 'Insufficient ETH for fee');
-            (bool success, ) = owner().call{ value: fee, gas: 2300 }('');
+            (bool success, ) = adminAddress.call{ value: fee, gas: 2300 }('');
             require(success, 'Fee transfer to owner failed');
         }
 
@@ -159,9 +164,27 @@ contract GiftHolder is
      */
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(ERC165, IERC165) returns (bool) {
+    )
+        public
+        view
+        virtual
+        override(AccessControl, ERC165, IERC165)
+        returns (bool)
+    {
         return
             interfaceId == type(IERC1155Receiver).interfaceId ||
             super.supportsInterface(interfaceId);
+    }
+
+    /**
+     * @notice Update the admin address
+     */
+    function updateAdmin(
+        address newAdmin
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newAdmin != address(0), 'Invalid admin address');
+        revokeRole(DEFAULT_ADMIN_ROLE, adminAddress);
+        adminAddress = newAdmin;
+        grantRole(DEFAULT_ADMIN_ROLE, newAdmin);
     }
 }
