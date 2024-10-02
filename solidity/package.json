@@ -1,6 +1,7 @@
 {
     "name": "hardhat-project",
     "devDependencies": {
+        "@defi-wonderland/smock": "^2.4.0",
         "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
         "@nomiclabs/hardhat-ethers": "^2.2.3",
         "@nomiclabs/hardhat-etherscan": "^3.1.8",
@@ -20,7 +21,7 @@
     },
     "scripts": {
         "node": "pnpm hardhat node",
-        "test": "pnpm hardhat test --network localhost",
+        "test": "pnpm hardhat test --network hardhat",
         "compile": "pnpm hardhat compile",
         "contract-deploy": "pnpm hardhat run scripts/deploy.js --network localhost",
         "slither": "slither . --solc-remaps '@openzeppelin=node_modules/@openzeppelin'"
