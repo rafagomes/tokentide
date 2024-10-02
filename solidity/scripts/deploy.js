@@ -2,7 +2,8 @@ const hre = require('hardhat');
 
 async function main() {
     // Set the owner address
-    const ownerAddress = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+    const [deployer] = await hre.ethers.getSigners();
+    console.log('Deployer address:', deployer.address);
 
     // Deploy the TokenIdentifier contract
     const TokenIdentifier =
@@ -16,6 +17,18 @@ async function main() {
     const tokenTransfer = await TokenTransfer.deploy(tokenIdentifier.address);
     await tokenTransfer.deployed();
     console.log('TokenTransfer deployed to:', tokenTransfer.address);
+
+    // permissions set
+    // Grant AUTHORIZED_ROLE to TokenTransfer in TokenIdentifier
+    const AUTHORIZED_ROLE = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes('AUTHORIZED_ROLE'),
+    );
+    await tokenIdentifier
+        .connect(deployer)
+        .grantRole(AUTHORIZED_ROLE, tokenTransfer.address);
+    console.log(
+        `Granted AUTHORIZED_ROLE of tokenIdentifier to TokenTransfer at address ${tokenTransfer.address}`,
+    );
 
     // Deploy the GiftHolder contract
     const GiftHolder = await hre.ethers.getContractFactory('GiftHolder');
@@ -31,6 +44,21 @@ async function main() {
     );
     await giftManager.deployed();
     console.log('GiftManager deployed to:', giftManager.address);
+
+    // Permissions set
+    await tokenTransfer
+        .connect(deployer)
+        .grantRole(AUTHORIZED_ROLE, giftManager.address);
+    console.log(
+        `Granted AUTHORIZED_ROLE of tokenTransfer to GiftManager at address ${giftManager.address} in TokenTransfer`,
+    );
+
+    await giftHolder
+        .connect(deployer)
+        .grantRole(AUTHORIZED_ROLE, giftManager.address);
+    console.log(
+        `Granted AUTHORIZED_ROLE of giftHolder to GiftManager at address ${giftManager.address} in GiftHolder`,
+    );
 }
 
 // We recommend this pattern to be able to use async/await everywhere
