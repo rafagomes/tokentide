@@ -7,7 +7,7 @@ import '@openzeppelin/contracts/token/ERC1155/IERC1155.sol';
 import '@openzeppelin/contracts/utils/introspection/IERC165.sol';
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/utils/Pausable.sol';
-import '@openzeppelin/contracts/access/Ownable.sol';
+import '@openzeppelin/contracts/access/AccessControl.sol';
 import './libraries/TokenTypes.sol';
 import './interfaces/ITokenIdentifier.sol';
 
@@ -18,11 +18,12 @@ import './interfaces/ITokenIdentifier.sol';
 contract TokenIdentifier is
     ReentrancyGuard,
     Pausable,
-    Ownable,
+    AccessControl,
     ITokenIdentifier
 {
     bytes4 private constant ERC721_INTERFACE_ID = 0x80ac58cd;
     bytes4 private constant ERC1155_INTERFACE_ID = 0xd9b67a26;
+    bytes32 public constant AUTHORIZED_ROLE = keccak256('AUTHORIZED_ROLE');
 
     // Mapping to cache identified token types for efficiency
     mapping(address => TokenTypes.TokenType) private tokenTypeCache;
@@ -35,7 +36,14 @@ contract TokenIdentifier is
         uint256 timestamp
     );
 
-    constructor() Ownable(msg.sender) {}
+    /**
+     * @notice Constructor to set the initial roles and pause state
+     */
+    constructor() {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(AUTHORIZED_ROLE, msg.sender);
+        _pause();
+    }
 
     /**
      * @notice Identify the type of the token (ERC20, ERC721, ERC1155) at a given address
@@ -44,7 +52,12 @@ contract TokenIdentifier is
      */
     function identifyTokenType(
         address token
-    ) external whenNotPaused returns (TokenTypes.TokenType) {
+    )
+        external
+        whenNotPaused
+        onlyRole(AUTHORIZED_ROLE)
+        returns (TokenTypes.TokenType)
+    {
         TokenTypes.TokenType cachedType = tokenTypeCache[token];
         if (cachedType != TokenTypes.TokenType.UNKNOWN) {
             return cachedType;
