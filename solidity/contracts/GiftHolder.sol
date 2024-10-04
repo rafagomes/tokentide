@@ -39,8 +39,8 @@ contract GiftHolder is
     event GiftReceived(
         address indexed tokenAddress,
         address indexed sender,
-        uint256 amountOrTokenId,
         bytes32 recipientHash,
+        uint256 amountOrTokenId,
         uint8 tokenType,
         uint256 fee
     );
@@ -60,6 +60,7 @@ contract GiftHolder is
         tokenTransfer = ITokenTransfer(_tokenTransferAddress);
         adminAddress = msg.sender;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(AUTHORIZED_ROLE, msg.sender);
     }
 
     /**
@@ -72,13 +73,14 @@ contract GiftHolder is
      */
     function depositGift(
         address tokenAddress,
-        uint256 amountOrTokenId,
         bytes32 recipientHash,
+        uint256 amountOrTokenId,
         TokenTypes.TokenType tokenType,
         uint256 fee
     ) external payable nonReentrant onlyRole(AUTHORIZED_ROLE) {
         tokenTransfer.transferToken(
             tokenAddress,
+            msg.sender,
             address(this),
             amountOrTokenId
         );
@@ -86,8 +88,8 @@ contract GiftHolder is
         emit GiftReceived(
             tokenAddress,
             msg.sender,
-            amountOrTokenId,
             recipientHash,
+            amountOrTokenId,
             uint8(tokenType),
             fee
         );
@@ -108,8 +110,15 @@ contract GiftHolder is
     ) external payable nonReentrant onlyRole(AUTHORIZED_ROLE) {
         require(recipient != address(0), 'Invalid recipient address');
 
+        IERC20(tokenAddress).approve(address(tokenTransfer), amountOrTokenId);
+
         // Transfer the token using the TokenTransfer contract
-        tokenTransfer.transferToken(tokenAddress, recipient, amountOrTokenId);
+        tokenTransfer.transferToken(
+            tokenAddress,
+            address(this),
+            recipient,
+            amountOrTokenId
+        );
 
         // Transfer the fee to the owner
         if (msg.value > 0 && fee > 0) {
