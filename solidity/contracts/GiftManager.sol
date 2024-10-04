@@ -145,8 +145,8 @@ contract GiftManager is
      */
     function depositGift(
         address tokenAddress,
-        uint256 amountOrTokenId,
         bytes32 recipientHash,
+        uint256 amountOrTokenId,
         uint256 expiryTimeInSeconds
     ) public payable nonReentrant whenNotPaused {
         _validateGiftParameters(tokenAddress, recipientHash);
@@ -164,6 +164,7 @@ contract GiftManager is
         // Call the GiftHolder to handle the actual transfer of tokens
         giftHolder.depositGift{ value: msg.value }(
             tokenAddress,
+            msg.sender,
             recipientHash,
             amountOrTokenId,
             tokenType,
@@ -223,16 +224,18 @@ contract GiftManager is
         bytes32 recipientHash
     ) external nonReentrant whenNotPaused {
         Gift storage gift = gifts[recipientHash];
-        if (gift.sender != msg.sender) revert NotSender();
         if (gift.claimed) revert GiftAlreadyClaimed();
         if (block.timestamp <= gift.expiryTime) revert GiftNotExpiredYet();
+        if (gift.sender != msg.sender) revert NotSender();
 
         giftHolder.claimGift(
             gift.tokenAddress,
             gift.sender,
             gift.amountOrTokenId,
-            0 // No fee for reclaiming
+            0
         );
+
+        emit GiftClaimed(recipientHash, gift.sender, 0);
 
         delete gifts[recipientHash];
     }
@@ -261,8 +264,8 @@ contract GiftManager is
      */
     function batchDepositGift(
         address tokenAddress,
-        uint256[] calldata amountsOrTokenIds,
         bytes32[] calldata recipientHashes,
+        uint256[] calldata amountsOrTokenIds,
         uint256 expiryTimeInSeconds
     ) external payable nonReentrant whenNotPaused {
         require(
@@ -273,8 +276,8 @@ contract GiftManager is
         for (uint256 i = 0; i < recipientHashes.length; i++) {
             depositGift(
                 tokenAddress,
-                amountsOrTokenIds[i],
                 recipientHashes[i],
+                amountsOrTokenIds[i],
                 expiryTimeInSeconds
             );
         }
