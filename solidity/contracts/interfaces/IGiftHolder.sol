@@ -10,6 +10,7 @@ import '../libraries/TokenTypes.sol';
 interface IGiftHolder {
     function depositGift(
         address tokenAddress,
+        address sender,
         bytes32 recipientHash,
         uint256 amountOrTokenId,
         TokenTypes.TokenType tokenType,
