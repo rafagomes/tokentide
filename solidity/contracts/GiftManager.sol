@@ -164,8 +164,8 @@ contract GiftManager is
         // Call the GiftHolder to handle the actual transfer of tokens
         giftHolder.depositGift{ value: msg.value }(
             tokenAddress,
-            amountOrTokenId,
             recipientHash,
+            amountOrTokenId,
             tokenType,
             fee
         );
@@ -248,7 +248,12 @@ contract GiftManager is
         address recipient,
         uint256 amountOrTokenId
     ) external nonReentrant whenNotPaused {
-        tokenTransfer.transferToken(token, recipient, amountOrTokenId);
+        tokenTransfer.transferToken(
+            token,
+            msg.sender,
+            recipient,
+            amountOrTokenId
+        );
     }
 
     /**
