@@ -59,7 +59,7 @@ describe('GiftHolder Contract (Unit Tests)', function () {
             return {
                 tx: await giftHolder
                     .connect(signer)
-                    .depositGift(tokenAddress, recipientHash, amount, 0, fee),
+                    .depositGift(tokenAddress, addr1.address, recipientHash, amount, 0, fee),
                 recipientHash,
             };
         };
@@ -81,7 +81,7 @@ describe('GiftHolder Contract (Unit Tests)', function () {
             await expect(
                 giftHolder
                     .connect(addr1)
-                    .depositGift(mockERC20.address, recipientHash, amount, 0, 0),
+                    .depositGift(mockERC20.address, addr1.address, recipientHash, amount, 0, 0),
             ).to.emit(giftHolder, 'GiftReceived');
 
             // Check that GiftHolder's balance increased
