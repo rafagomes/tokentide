@@ -8,8 +8,8 @@ pragma solidity ^0.8.27;
 interface IGiftManager {
     function depositGift(
         address tokenAddress,
-        uint256 amountOrTokenId,
         bytes32 recipientHash,
+        uint256 amountOrTokenId,
         uint256 expiryTimeInSeconds
     ) external payable;
 
@@ -27,8 +27,8 @@ interface IGiftManager {
 
     function batchDepositGift(
         address tokenAddress,
-        uint256[] calldata amountsOrTokenIds,
         bytes32[] calldata recipientHashes,
+        uint256[] calldata amountsOrTokenIds,
         uint256 expiryTimeInSeconds
     ) external payable;
 }
