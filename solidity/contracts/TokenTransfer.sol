@@ -8,6 +8,7 @@ import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
 import '@openzeppelin/contracts/token/ERC1155/IERC1155.sol';
+import 'hardhat/console.sol';
 import './interfaces/ITokenIdentifier.sol';
 import './libraries/TokenTypes.sol';
 import './interfaces/ITokenTransfer.sol';
@@ -62,11 +63,13 @@ contract TokenTransfer is
     /**
      * @notice Transfer tokens to a recipient based on their type (ERC20, ERC721, or ERC1155)
      * @param token The address of the token contract
+     * @param sender The sender's address (who actually owns the tokens)
      * @param recipient The recipient's address
      * @param amountOrTokenId Amount of ERC20 tokens or token ID for ERC721/ERC1155
      */
     function transferToken(
         address token,
+        address sender,
         address recipient,
         uint256 amountOrTokenId
     ) external nonReentrant whenNotPaused onlyRole(AUTHORIZED_ROLE) {
@@ -84,24 +87,24 @@ contract TokenTransfer is
             revert UnsupportedTokenType();
         }
 
-        if (recipient == address(0) || recipient == msg.sender) {
+        if (recipient == address(0) || recipient == sender) {
             revert InvalidRecipient();
         }
 
         // Handle token transfers based on token type
         if (tokenType == TokenTypes.TokenType.ERC20) {
-            _transferERC20(token, recipient, amountOrTokenId);
+            _transferERC20(token, sender, recipient, amountOrTokenId);
         } else if (tokenType == TokenTypes.TokenType.ERC721) {
-            _transferERC721(token, recipient, amountOrTokenId);
+            _transferERC721(token, sender, recipient, amountOrTokenId);
         } else if (tokenType == TokenTypes.TokenType.ERC1155) {
-            _transferERC1155(token, recipient, amountOrTokenId);
+            _transferERC1155(token, sender, recipient, amountOrTokenId);
         }
 
         emit TokenTransferred(
             token,
             recipient,
             amountOrTokenId,
-            msg.sender,
+            sender,
             tokenType,
             tx.origin
         );
@@ -112,38 +115,38 @@ contract TokenTransfer is
      */
     function _transferERC20(
         address token,
+        address sender,
         address recipient,
         uint256 amount
     ) internal {
-        uint256 balance = IERC20(token).balanceOf(msg.sender);
+        uint256 balance = IERC20(token).balanceOf(sender);
         if (balance < amount) {
             revert InsufficientBalance(balance, amount);
         }
 
-        uint256 allowance = IERC20(token).allowance(msg.sender, address(this));
+        uint256 allowance = IERC20(token).allowance(sender, address(this));
+        console.log('Allowance before transfer: %s', allowance);
         if (allowance < amount) {
             revert InsufficientAllowance(allowance, amount);
         }
 
-        IERC20(token).safeTransferFrom(msg.sender, recipient, amount);
+        IERC20(token).safeTransferFrom(sender, recipient, amount);
     }
 
-    /**
-     * @dev Internal function to handle ERC721 transfers
-     */
     function _transferERC721(
         address token,
+        address sender,
         address recipient,
         uint256 tokenId
     ) internal {
         // Ensure the contract is approved to transfer the token
         if (
             IERC721(token).getApproved(tokenId) != address(this) &&
-            !IERC721(token).isApprovedForAll(msg.sender, address(this))
+            !IERC721(token).isApprovedForAll(sender, address(this))
         ) {
             revert TransferFailed();
         }
-        IERC721(token).safeTransferFrom(msg.sender, recipient, tokenId);
+        IERC721(token).safeTransferFrom(sender, recipient, tokenId);
     }
 
     /**
@@ -151,13 +154,14 @@ contract TokenTransfer is
      */
     function _transferERC1155(
         address token,
+        address sender,
         address recipient,
         uint256 tokenId
     ) internal {
         // Ensure the contract is approved to transfer the token
-        if (!IERC1155(token).isApprovedForAll(msg.sender, address(this))) {
+        if (!IERC1155(token).isApprovedForAll(sender, address(this))) {
             revert TransferFailed();
         }
-        IERC1155(token).safeTransferFrom(msg.sender, recipient, tokenId, 1, '');
+        IERC1155(token).safeTransferFrom(sender, recipient, tokenId, 1, '');
     }
 }
