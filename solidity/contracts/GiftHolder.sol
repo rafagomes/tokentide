@@ -66,6 +66,7 @@ contract GiftHolder is
     /**
      * @notice Deposit a gift for a recipient
      * @param tokenAddress Address of the token contract
+     * @param sender Address of the sender
      * @param amountOrTokenId Amount of tokens or tokenId
      * @param recipientHash Hash of the recipient's email
      * @param tokenType Type of the token (ERC20, ERC721, ERC1155)
@@ -73,6 +74,7 @@ contract GiftHolder is
      */
     function depositGift(
         address tokenAddress,
+        address sender,
         bytes32 recipientHash,
         uint256 amountOrTokenId,
         TokenTypes.TokenType tokenType,
@@ -80,14 +82,14 @@ contract GiftHolder is
     ) external payable nonReentrant onlyRole(AUTHORIZED_ROLE) {
         tokenTransfer.transferToken(
             tokenAddress,
-            msg.sender,
+            sender,
             address(this),
             amountOrTokenId
         );
 
         emit GiftReceived(
             tokenAddress,
-            msg.sender,
+            sender,
             recipientHash,
             amountOrTokenId,
             uint8(tokenType),
