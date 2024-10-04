@@ -1,0 +1,53 @@
+# Binaries for programs and plugins
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Output of the build process
+/tokentide
+tmp/
+
+# Dependency directories (vendor in Go Modules mode)
+vendor/
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Build directory
+/build/
+
+# Logs and database files
+*.log
+*.db
+*.sqlite
+
+# Ignore environment variables files
+.env
+.env.*
+
+# IDE / editor specific files
+.idea/
+.vscode/
+*.iml
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Ignore binary artifacts
+*.a
+*.o
+*.so
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+*.bak
+
+# Git-specific files
+!.gitignore
