@@ -1,5 +1,5 @@
 import { ethers } from 'hardhat';
-import { Contract } from 'ethers';
+import { Contract, Signer } from 'ethers';
 import chai from 'chai';
 import { solidity } from 'ethereum-waffle';
 
@@ -10,10 +10,12 @@ describe('TokenTransfer Contract', function () {
     let tokenTransfer: Contract;
     let tokenIdentifier: Contract;
     let mockERC20: Contract, mockERC721: Contract, mockERC1155: Contract;
-    let deployer: any, recipient: any;
+    let deployer: Signer, recipient: Signer;
+    let AUTHORIZED_ROLE;
 
     before(async () => {
         [deployer, recipient] = await ethers.getSigners();
+        AUTHORIZED_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('AUTHORIZED_ROLE'));
 
         // Deploy the TokenIdentifier contract
         const TokenIdentifier = await ethers.getContractFactory('TokenIdentifier');
@@ -37,6 +39,9 @@ describe('TokenTransfer Contract', function () {
         const MockERC1155 = await ethers.getContractFactory('MockERC1155');
         mockERC1155 = await MockERC1155.deploy();
         await mockERC1155.deployed();
+
+        await tokenIdentifier.grantRole(AUTHORIZED_ROLE, tokenTransfer.address);
+        await tokenTransfer.grantRole(AUTHORIZED_ROLE, deployer.address);
     });
 
     describe('ERC20 Transfers', function () {
@@ -44,10 +49,11 @@ describe('TokenTransfer Contract', function () {
             await expect(
                 tokenTransfer.transferToken(
                     mockERC20.address,
+                    deployer.address,
                     recipient.address,
                     ethers.utils.parseEther('10'),
                 ),
-            ).to.be.revertedWith('ERC20 allowance insufficient');
+            ).to.be.revertedWith('InsufficientAllowance');
         });
 
         it('Should transfer ERC-20 tokens successfully with sufficient allowance', async function () {
@@ -55,7 +61,12 @@ describe('TokenTransfer Contract', function () {
             await mockERC20.connect(deployer).approve(tokenTransfer.address, transferAmount);
 
             await expect(
-                tokenTransfer.transferToken(mockERC20.address, recipient.address, transferAmount),
+                tokenTransfer.transferToken(
+                    mockERC20.address,
+                    deployer.address,
+                    recipient.address,
+                    transferAmount,
+                ),
             ).to.emit(mockERC20, 'Transfer');
 
             const recipientBalance = await mockERC20.balanceOf(recipient.address);
@@ -68,15 +79,25 @@ describe('TokenTransfer Contract', function () {
             await mockERC721.connect(deployer).mint(deployer.address);
 
             await expect(
-                tokenTransfer.transferToken(mockERC721.address, recipient.address, 1),
-            ).to.be.revertedWith('Contract not approved for ERC721 transfer');
+                tokenTransfer.transferToken(
+                    mockERC721.address,
+                    deployer.address,
+                    recipient.address,
+                    1,
+                ),
+            ).to.be.revertedWith('TransferFailed');
         });
 
         it('Should transfer ERC-721 tokens successfully with approval', async function () {
             await mockERC721.connect(deployer).approve(tokenTransfer.address, 1);
 
             await expect(
-                tokenTransfer.transferToken(mockERC721.address, recipient.address, 1),
+                tokenTransfer.transferToken(
+                    mockERC721.address,
+                    deployer.address,
+                    recipient.address,
+                    1,
+                ),
             ).to.emit(mockERC721, 'Transfer');
 
             expect(await mockERC721.ownerOf(1)).to.equal(recipient.address);
@@ -88,15 +109,25 @@ describe('TokenTransfer Contract', function () {
             await mockERC1155.connect(deployer).mint(deployer.address, 1, 1);
 
             await expect(
-                tokenTransfer.transferToken(mockERC1155.address, recipient.address, 1),
-            ).to.be.revertedWith('Contract not approved for ERC1155 transfer');
+                tokenTransfer.transferToken(
+                    mockERC1155.address,
+                    deployer.address,
+                    recipient.address,
+                    1,
+                ),
+            ).to.be.revertedWith('TransferFailed');
         });
 
         it('Should transfer ERC-1155 tokens successfully with approval', async function () {
             await mockERC1155.connect(deployer).setApprovalForAll(tokenTransfer.address, true);
 
             await expect(
-                tokenTransfer.transferToken(mockERC1155.address, recipient.address, 1),
+                tokenTransfer.transferToken(
+                    mockERC1155.address,
+                    deployer.address,
+                    recipient.address,
+                    1,
+                ),
             ).to.emit(mockERC1155, 'TransferSingle');
 
             const recipientBalance = await mockERC1155.balanceOf(recipient.address, 1);
@@ -108,8 +139,13 @@ describe('TokenTransfer Contract', function () {
         it('Should revert when trying to transfer an unsupported token type', async function () {
             const invalidTokenAddress = ethers.constants.AddressZero;
             await expect(
-                tokenTransfer.transferToken(invalidTokenAddress, recipient.address, 1),
-            ).to.be.revertedWith('Unsupported token type');
+                tokenTransfer.transferToken(
+                    invalidTokenAddress,
+                    deployer.address,
+                    recipient.address,
+                    1,
+                ),
+            ).to.be.revertedWith('UnsupportedTokenType');
         });
 
         it('Should revert if trying to transfer tokens to oneself', async function () {
@@ -117,9 +153,10 @@ describe('TokenTransfer Contract', function () {
                 tokenTransfer.transferToken(
                     mockERC20.address,
                     deployer.address,
+                    deployer.address,
                     ethers.utils.parseEther('1'),
                 ),
-            ).to.be.revertedWith('Cannot transfer to yourself');
+            ).to.be.revertedWith('InvalidRecipient');
         });
     });
 });
