@@ -8,7 +8,6 @@ import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
 import '@openzeppelin/contracts/token/ERC1155/IERC1155.sol';
-import 'hardhat/console.sol';
 import './interfaces/ITokenIdentifier.sol';
 import './libraries/TokenTypes.sol';
 import './interfaces/ITokenTransfer.sol';
@@ -125,7 +124,6 @@ contract TokenTransfer is
         }
 
         uint256 allowance = IERC20(token).allowance(sender, address(this));
-        console.log('Allowance before transfer: %s', allowance);
         if (allowance < amount) {
             revert InsufficientAllowance(allowance, amount);
         }
