@@ -10,8 +10,8 @@ import '../libraries/TokenTypes.sol';
 interface IGiftHolder {
     function depositGift(
         address tokenAddress,
-        uint256 amountOrTokenId,
         bytes32 recipientHash,
+        uint256 amountOrTokenId,
         TokenTypes.TokenType tokenType,
         uint256 fee
     ) external payable;
