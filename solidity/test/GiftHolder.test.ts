@@ -1,164 +1,168 @@
-import { expect } from 'chai';
-import { ethers } from 'hardhat';
-import { Contract, Signer } from 'ethers';
+import { TokenTransfer } from '../typechain-types/contracts/TokenTransfer';
+import { MockERC721 } from '../typechain-types/contracts/mocks/MockERC721';
+const { expect } = require('chai');
+const { ethers } = require('hardhat');
 
-describe('GiftHolding Contract', function () {
-    let giftHolding: Contract;
-    let tokenIdentifier: Contract;
-    let mockERC20: Contract;
-    let mockERC721: Contract;
-    let mockERC1155: Contract;
-    let owner: Signer;
-    let addr1: Signer;
-    let addr2: Signer;
+describe('GiftHolder Contract (Unit Tests)', function () {
+    let giftHolder;
+    let tokenTransfer;
+    let mockERC20;
+    let mockERC721;
+    let deployer;
+    let addr1;
+    let addr2;
+    let recipientHash;
+    let AUTHORIZED_ROLE;
 
-    before(async () => {
-        [owner, addr1, addr2] = await ethers.getSigners();
+    beforeEach(async () => {
+        [deployer, addr1, addr2] = await ethers.getSigners();
+        recipientHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('recipient@example.com'));
+        AUTHORIZED_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('AUTHORIZED_ROLE'));
 
-        // Deploy the TokenIdentifier contract
+        // TokenIdentifier contract
         const TokenIdentifier = await ethers.getContractFactory('TokenIdentifier');
-        tokenIdentifier = await TokenIdentifier.deploy();
+        const tokenIdentifier = await TokenIdentifier.deploy();
         await tokenIdentifier.deployed();
 
-        // Deploy the GiftHolding contract
-        const GiftHolding = await ethers.getContractFactory('GiftHolding');
-        giftHolding = await GiftHolding.deploy(tokenIdentifier.address);
-        await giftHolding.deployed();
+        // Mock TokenTransfer contract
+        const TokenTransfer = await ethers.getContractFactory('TokenTransfer');
+        tokenTransfer = await TokenTransfer.deploy(tokenIdentifier.address);
+        await tokenTransfer.deployed();
 
-        // Deploy mock ERC20, ERC721, and ERC1155 tokens
+        // Deploy the GiftHolder contract, passing in the mocked TokenTransfer contract
+        const GiftHolder = await ethers.getContractFactory('GiftHolder');
+        giftHolder = await GiftHolder.deploy(tokenTransfer.address);
+        await giftHolder.deployed();
+
+        // Deploy mock ERC20 token for testing
         const MockERC20 = await ethers.getContractFactory('MockERC20');
         mockERC20 = await MockERC20.deploy(ethers.utils.parseEther('1000')); // 1000 tokens
         await mockERC20.deployed();
 
+        // Deploy mock ERC721 token for testing
         const MockERC721 = await ethers.getContractFactory('MockERC721');
-        mockERC721 = await MockERC721.deploy();
+        mockERC721 = await MockERC721.deploy(); // 1000 tokens
         await mockERC721.deployed();
 
-        const MockERC1155 = await ethers.getContractFactory('MockERC1155');
-        mockERC1155 = await MockERC1155.deploy();
-        await mockERC1155.deployed();
+        // Grant AUTHORIZED_ROLE to addr1
+        await tokenIdentifier.grantRole(AUTHORIZED_ROLE, await tokenTransfer.address);
+        await tokenTransfer.grantRole(AUTHORIZED_ROLE, await giftHolder.address);
+        await giftHolder.grantRole(AUTHORIZED_ROLE, addr1.address);
     });
 
-    describe('Depositing Gifts', function () {
-        it('Should deposit ERC20 tokens as a gift', async function () {
+    describe('ERC20 Transfers', function () {
+        const depositGiftHelper = async (signer, tokenAddress, amount, recipientEmail, fee) => {
+            const recipientHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(recipientEmail));
+            await mockERC20.connect(deployer).transfer(signer.address, amount);
+            await mockERC20.connect(signer).approve(tokenTransfer.address, amount);
+
+            return {
+                tx: await giftHolder
+                    .connect(signer)
+                    .depositGift(tokenAddress, recipientHash, amount, 0, fee),
+                recipientHash,
+            };
+        };
+
+        it('Should allow deposit and withdrawal of ERC20 tokens', async function () {
             const amount = ethers.utils.parseEther('100'); // 100 tokens
 
-            // Transfer tokens from `owner` to `addr1` first to set up the test environment
-            await mockERC20.connect(owner).transfer(addr1.address, amount);
+            // Transfer 100 tokens from deployer to addr1
+            await mockERC20.connect(deployer).transfer(addr1.address, amount);
 
-            // Now addr1 should approve giftHolding contract to transfer those tokens
-            await mockERC20.connect(addr1).approve(giftHolding.address, amount);
+            // Approve the TokenTransfer contract to transfer tokens on behalf of addr1
+            await mockERC20.connect(addr1).approve(tokenTransfer.address, amount);
 
             const recipientHash = ethers.utils.keccak256(
                 ethers.utils.toUtf8Bytes('recipient@example.com'),
             );
 
+            // Deposit ERC20 tokens into the GiftHolder contract
             await expect(
-                giftHolding.connect(addr1).depositGift(mockERC20.address, amount, recipientHash),
-            ).to.emit(giftHolding, 'GiftDeposited');
+                giftHolder
+                    .connect(addr1)
+                    .depositGift(mockERC20.address, recipientHash, amount, 0, 0),
+            ).to.emit(giftHolder, 'GiftReceived');
 
-            const gift = await giftHolding.gifts(recipientHash);
-            expect(gift.tokenAddress).to.equal(mockERC20.address);
-            expect(gift.amountOrTokenId).to.equal(amount);
+            // Check that GiftHolder's balance increased
+            const holderBalance = await mockERC20.balanceOf(giftHolder.address);
+            expect(holderBalance).to.equal(amount);
 
-            const expectedFee = amount.mul(percentageFee).div(100);
-            expect(gift.fee).to.equal(expectedFee);
+            // Withdraw tokens back from GiftHolder using TokenTransfer (no need for approve)
+            await expect(
+                giftHolder.connect(addr1).claimGift(mockERC20.address, addr1.address, amount, 0),
+            ).to.emit(giftHolder, 'GiftClaimProcessed');
+
+            // Check that addr1 received the tokens back
+            const addr1Balance = await mockERC20.balanceOf(addr1.address);
+            expect(addr1Balance).to.equal(amount);
         });
 
-        it('Should deposit ERC721 tokens as a gift', async function () {
-            await mockERC721.connect(owner).mint(await owner.getAddress());
-            await mockERC721.connect(owner).approve(giftHolding.address, 3);
+        it('Should prevent unauthorized address from depositing tokens', async function () {
+            const amount = ethers.utils.parseEther('100');
+            await expect(
+                depositGiftHelper(addr2, mockERC20.address, amount, 'recipient@example.com', 3),
+            ).to.be.revertedWith('AccessControlUnauthorizedAccount');
+        });
+    });
 
-            const recipientHash = ethers.utils.keccak256(
-                ethers.utils.toUtf8Bytes('recipient2@example.com'),
-            );
-
-            await expect(giftHolding.depositGift(mockERC721.address, 3, recipientHash)).to.emit(
-                giftHolding,
-                'GiftDeposited',
-            );
-
-            const gift = await giftHolding.gifts(recipientHash);
-            expect(gift.tokenAddress).to.equal(mockERC721.address);
-            expect(gift.amountOrTokenId).to.equal(3);
-            expect(gift.fee).to.equal(nftFee);
+    describe('ERC721 Transfers', function () {
+        it('Should revert if trying to transfer ERC-721 without approval', async function () {
+            await mockERC721.connect(deployer).mint(deployer.address);
+            await expect(
+                tokenTransfer.transferToken(mockERC721.address, deployer.address, addr2.address, 1),
+            ).to.be.revertedWith('TransferFailed');
         });
 
-        it('Should deposit ERC1155 tokens as a gift', async function () {
-            await mockERC1155.connect(owner).mint(await owner.getAddress(), 1, 1);
-            await mockERC1155.connect(owner).setApprovalForAll(giftHolding.address, true);
+        it('Should transfer ERC-721 tokens successfully with approval', async function () {
+            await mockERC721.connect(deployer).mint(deployer.address);
+            await mockERC721.connect(deployer).approve(tokenTransfer.address, 1);
 
-            const recipientHash = ethers.utils.keccak256(
-                ethers.utils.toUtf8Bytes('recipient3@example.com'),
-            );
+            await expect(
+                tokenTransfer.transferToken(mockERC721.address, deployer.address, addr2.address, 1),
+            )
+                .to.emit(mockERC721, 'Transfer')
+                .withArgs(deployer.address, addr2.address, 1);
 
-            await expect(giftHolding.depositGift(mockERC1155.address, 1, recipientHash)).to.emit(
-                giftHolding,
-                'GiftDeposited',
-            );
-
-            const gift = await giftHolding.gifts(recipientHash);
-            expect(gift.tokenAddress).to.equal(mockERC1155.address);
-            expect(gift.amountOrTokenId).to.equal(1);
-            expect(gift.fee).to.equal(nftFee);
+            expect(await mockERC721.ownerOf(1)).to.equal(addr2.address);
         });
     });
 
     describe('Claiming Gifts', function () {
-        it('Should allow recipient to claim ERC20 tokens', async function () {
+        it('Should allow authorized address to claim ERC20 tokens', async function () {
             const recipientHash = ethers.utils.keccak256(
                 ethers.utils.toUtf8Bytes('recipient@example.com'),
             );
 
-            // Check balances before claim
-            const initialBalanceAddr1 = await mockERC20.balanceOf(await addr1.address);
-            const initialBalanceGiftHolding = await mockERC20.balanceOf(giftHolding.address);
-            await mockERC20.connect(addr1).approve(giftHolding.address, initialBalanceGiftHolding);
-            const allowance = await mockERC20.allowance(addr1.address, giftHolding.address);
-
-            await expect(giftHolding.connect(addr1).claimGift(recipientHash, { value: 0 })).to.emit(
-                giftHolding,
-                'GiftClaimed',
-            );
-
-            const finalBalance = await mockERC20.balanceOf(await addr1.getAddress());
-            expect(finalBalance.sub(initialBalanceAddr1)).to.equal(ethers.utils.parseEther('97')); // 100 - 3% fee
-        });
-
-        it('Should allow recipient to claim ERC1155 tokens', async function () {
-            const recipientHash = ethers.utils.keccak256(
-                ethers.utils.toUtf8Bytes('recipient3@example.com'),
-            );
-
+            const transferAmount = ethers.utils.parseEther('100');
+            await mockERC20.transfer(giftHolder.address, transferAmount);
             await expect(
-                giftHolding.connect(addr1).claimGift(recipientHash, { value: nftFee }),
-            ).to.emit(giftHolding, 'GiftClaimed');
-
-            expect(await mockERC1155.balanceOf(await addr1.getAddress(), 1)).to.equal(1);
-        });
-    });
-
-    describe('Negative Test Cases', function () {
-        it('Should revert on insufficient ERC20 balance', async function () {
-            const insufficientAmount = ethers.utils.parseEther('2000');
-            await mockERC20.connect(owner).approve(giftHolding.address, insufficientAmount);
-            const recipientHash = ethers.utils.keccak256(
-                ethers.utils.toUtf8Bytes('fail1@example.com'),
-            );
-
-            await expect(
-                giftHolding.depositGift(mockERC20.address, insufficientAmount, recipientHash),
-            ).to.be.revertedWith('Insufficient balance');
+                giftHolder
+                    .connect(addr1)
+                    .claimGift(
+                        mockERC20.address,
+                        await addr1.getAddress(),
+                        ethers.utils.parseEther('100'),
+                        0,
+                    ),
+            ).to.emit(giftHolder, 'GiftClaimProcessed');
         });
 
-        it('Should revert if claim is attempted twice or not found', async function () {
+        it('Should prevent unauthorized address from claiming tokens', async function () {
             const recipientHash = ethers.utils.keccak256(
                 ethers.utils.toUtf8Bytes('recipient@example.com'),
             );
 
             await expect(
-                giftHolding.connect(addr1).claimGift(recipientHash, { value: 0 }),
-            ).to.be.revertedWith('No gift found for this email or already claimed');
+                giftHolder
+                    .connect(addr2)
+                    .claimGift(
+                        mockERC20.address,
+                        await addr2.getAddress(),
+                        ethers.utils.parseEther('100'),
+                        0,
+                    ),
+            ).to.be.revertedWith('AccessControlUnauthorizedAccount');
         });
     });
 });
