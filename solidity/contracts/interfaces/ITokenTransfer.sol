@@ -10,6 +10,7 @@ import './ITokenIdentifier.sol';
 interface ITokenTransfer {
     function transferToken(
         address token,
+        address sender,
         address recipient,
         uint256 amountOrTokenId
     ) external;
