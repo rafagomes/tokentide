@@ -1,5 +1,16 @@
 {
     "name": "hardhat-project",
+    "scripts": {
+        "node": "pnpm hardhat node",
+        "test": "pnpm hardhat test --network hardhat",
+        "compile": "pnpm hardhat compile",
+        "contract-deploy": "pnpm hardhat run scripts/deploy.js --network localhost",
+        "slither": "slither . --solc-remaps '@openzeppelin=node_modules/@openzeppelin'"
+    },
+    "dependencies": {
+        "@openzeppelin/contracts": "^5.0.2",
+        "viem": "^2.21.15"
+    },
     "devDependencies": {
         "@defi-wonderland/smock": "^2.4.0",
         "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
@@ -14,16 +25,5 @@
         "hardhat": "^2.22.12",
         "prettier": "3.3.3",
         "typescript": "^5.6.2"
-    },
-    "dependencies": {
-        "@openzeppelin/contracts": "^5.0.2",
-        "viem": "^2.21.15"
-    },
-    "scripts": {
-        "node": "pnpm hardhat node",
-        "test": "pnpm hardhat test --network hardhat",
-        "compile": "pnpm hardhat compile",
-        "contract-deploy": "pnpm hardhat run scripts/deploy.js --network localhost",
-        "slither": "slither . --solc-remaps '@openzeppelin=node_modules/@openzeppelin'"
     }
 }

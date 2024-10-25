@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react'
 
 /**
  * Fix hydration in client components that render diff from what was pre-rendered on server ( dynamic computed on CSR )
@@ -6,11 +6,11 @@ import { useEffect, useState } from 'react';
  */
 
 export default function useIsClient() {
-  const [isClient, setIsClient] = useState(false);
+    const [isClient, setIsClient] = useState(false)
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+    useEffect(() => {
+        setIsClient(true)
+    }, [])
 
-  return { isClient };
+    return { isClient }
 }

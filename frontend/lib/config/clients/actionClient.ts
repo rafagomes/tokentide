@@ -1,52 +1,59 @@
-import { jwtVerify } from 'jose';
-import { DEFAULT_SERVER_ERROR_MESSAGE, createSafeActionClient } from 'next-safe-action';
-import { cookies } from 'next/headers';
-import { z } from 'zod';
-import { env } from '../env';
-import { JWT_CONFIG } from '@/lib/constants';
+import { jwtVerify } from 'jose'
+import {
+    DEFAULT_SERVER_ERROR_MESSAGE,
+    createSafeActionClient,
+} from 'next-safe-action'
+import { cookies } from 'next/headers'
+import { z } from 'zod'
+import { env } from '../env'
+import { JWT_CONFIG } from '@/lib/constants'
 
 class ActionError extends Error {}
 
 async function verifyJwt(token: string) {
-  try {
-    const { payload } = await jwtVerify(token, new TextEncoder().encode(env.JWT_SECRET_KEY), {
-      issuer: JWT_CONFIG.ISSUER,
-      audience: JWT_CONFIG.AUDIENCE,
-    });
-    return payload;
-  } catch (error) {
-    console.error('Error verifying JWT:', error);
-    throw new ActionError('Invalid token');
-  }
+    try {
+        const { payload } = await jwtVerify(
+            token,
+            new TextEncoder().encode(env.JWT_SECRET_KEY),
+            {
+                issuer: JWT_CONFIG.ISSUER,
+                audience: JWT_CONFIG.AUDIENCE,
+            }
+        )
+        return payload
+    } catch (error) {
+        console.error('Error verifying JWT:', error)
+        throw new ActionError('Invalid token')
+    }
 }
 
 export const actionClient = createSafeActionClient({
-  handleReturnedServerError(e) {
-    if (e instanceof ActionError || e instanceof Error) {
-      return e.message;
-    }
-    return DEFAULT_SERVER_ERROR_MESSAGE;
-  },
-  defineMetadataSchema() {
-    return z.object({
-      actionName: z.string(),
-    });
-  },
+    handleReturnedServerError(e) {
+        if (e instanceof ActionError || e instanceof Error) {
+            return e.message
+        }
+        return DEFAULT_SERVER_ERROR_MESSAGE
+    },
+    defineMetadataSchema() {
+        return z.object({
+            actionName: z.string(),
+        })
+    },
 }).use(async ({ next }) => {
-  const jwtCookie = cookies().get('jwt');
+    const jwtCookie = cookies().get('jwt')
 
-  if (!jwtCookie) {
-    throw new ActionError('JWT not found!');
-  }
+    if (!jwtCookie) {
+        throw new ActionError('JWT not found!')
+    }
 
-  try {
-    const payload = await verifyJwt(jwtCookie.value);
+    try {
+        const payload = await verifyJwt(jwtCookie.value)
 
-    return next({ ctx: { jwt: jwtCookie.value, payload } });
-  } catch (error) {
-    throw new ActionError('Invalid or expired token');
-  }
-});
+        return next({ ctx: { jwt: jwtCookie.value, payload } })
+    } catch (error) {
+        throw new ActionError('Invalid or expired token')
+    }
+})
 // .use(async ({ next, clientInput, metadata }) => {
 //   const startTime = performance.now();
 //   const startDate = new Date().toISOString();
